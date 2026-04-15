@@ -10,9 +10,9 @@ const TRACKING_PIXEL = Buffer.from(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await params;
   const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
   const ua = request.headers.get('user-agent') || 'unknown';
 
