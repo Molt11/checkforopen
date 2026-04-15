@@ -48,4 +48,6 @@ EXPOSE 3000
 ENV HOSTNAME=0.0.0.0
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
-CMD ["node", "server.js"]
+
+# Wrapper to ensure writable directory even if volume mount is root-owned
+CMD ["sh", "-c", "mkdir -p /app/data/db && node server.js"]

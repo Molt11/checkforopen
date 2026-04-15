@@ -20,14 +20,26 @@ const isTestMode = process.env.MISSION_CONTROL_TEST_MODE === '1'
  */
 export function getDatabase(): Database.Database {
   if (!db) {
-    ensureDirExists(dirname(DB_PATH));
-    db = new Database(DB_PATH);
-    
-    // Enable WAL mode for better concurrent access
-    db.pragma('journal_mode = WAL');
-    db.pragma('synchronous = NORMAL');
-    db.pragma('cache_size = 1000');
-    db.pragma('foreign_keys = ON');
+    const dbDir = dirname(DB_PATH);
+    try {
+      ensureDirExists(dbDir);
+    } catch (err) {
+      logger.error({ err, path: dbDir }, 'Failed to ensure database directory exists');
+      throw new Error(`Database directory inaccessible: ${dbDir}`);
+    }
+
+    try {
+      db = new Database(DB_PATH);
+      
+      // Enable WAL mode for better concurrent access
+      db.pragma('journal_mode = WAL');
+      db.pragma('synchronous = NORMAL');
+      db.pragma('cache_size = 1000');
+      db.pragma('foreign_keys = ON');
+    } catch (err) {
+      logger.error({ err, path: DB_PATH }, 'Failed to open database');
+      throw new Error(`Could not open database at ${DB_PATH}. Ensure the directory is writable.`);
+    }
     
     // Initialize schema if needed
     initializeSchema();

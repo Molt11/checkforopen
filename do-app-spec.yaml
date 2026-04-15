@@ -15,7 +15,7 @@ services:
       - key: MISSION_CONTROL_DATA_DIR
         value: /app/data
       - key: MISSION_CONTROL_DB_PATH
-        value: /app/data/mission-control.db
+        value: /app/data/db/mission-control.db
       - key: MISSION_CONTROL_TOKENS_PATH
         value: /app/data/mission-control-tokens.json
       - key: AUTH_USER
