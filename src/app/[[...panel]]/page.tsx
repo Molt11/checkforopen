@@ -6,6 +6,7 @@ import { NavRail } from '@/components/layout/nav-rail'
 import { HeaderBar } from '@/components/layout/header-bar'
 import { LiveFeed } from '@/components/layout/live-feed'
 import { Dashboard } from '@/components/dashboard/dashboard'
+import { OutreachPanel } from '@/components/panels/outreach-panel'
 import { LogViewerPanel } from '@/components/panels/log-viewer-panel'
 import { CronManagementPanel } from '@/components/panels/cron-management-panel'
 import { MemoryBrowserPanel } from '@/components/panels/memory-browser-panel'
@@ -479,6 +480,8 @@ function ContentRouter({ tab }: { tab: string }) {
       )
     case 'tasks':
       return <TaskBoardPanel />
+    case 'outreach':
+      return <OutreachPanel />
     case 'agents':
       return (
         <>

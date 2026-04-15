@@ -7,9 +7,9 @@ export interface ModelConfig {
 }
 
 export const MODEL_CATALOG: ModelConfig[] = [
-  { alias: 'haiku', name: 'anthropic/claude-3-5-haiku-latest', provider: 'anthropic', description: 'Ultra-cheap, simple tasks', costPer1k: 0.25 },
+  { alias: 'haiku', name: 'anthropic/claude-haiku-4-5-20251001', provider: 'anthropic', description: 'Ultra-cheap, simple tasks', costPer1k: 0.25 },
   { alias: 'sonnet', name: 'anthropic/claude-sonnet-4-20250514', provider: 'anthropic', description: 'Standard workhorse', costPer1k: 3.0 },
-  { alias: 'opus', name: 'anthropic/claude-opus-4-5', provider: 'anthropic', description: 'Premium quality', costPer1k: 15.0 },
+  { alias: 'opus', name: 'anthropic/claude-opus-4-20250514', provider: 'anthropic', description: 'Premium quality', costPer1k: 15.0 },
   { alias: 'deepseek', name: 'ollama/deepseek-r1:14b', provider: 'ollama', description: 'Local reasoning (free)', costPer1k: 0.0 },
   { alias: 'groq-fast', name: 'groq/llama-3.1-8b-instant', provider: 'groq', description: '840 tok/s, ultra fast', costPer1k: 0.05 },
   { alias: 'groq', name: 'groq/llama-3.3-70b-versatile', provider: 'groq', description: 'Fast + quality balance', costPer1k: 0.59 },

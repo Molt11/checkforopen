@@ -1,0 +1,57 @@
+name: mission-control
+region: nyc
+services:
+  - name: mission-control-app
+    instance_count: 1
+    instance_size_slug: basic-xs
+    dockerfile_path: mission-control/Dockerfile
+    source_dir: mission-control
+    http_port: 3000
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: MISSION_CONTROL_DATA_DIR
+        value: /app/data
+      - key: MISSION_CONTROL_DB_PATH
+        value: /app/data/mission-control.db
+      - key: MISSION_CONTROL_TOKENS_PATH
+        value: /app/data/mission-control-tokens.json
+      - key: AUTH_USER
+        value: admin
+      - key: AUTH_PASS
+        value: ${AUTH_PASS}
+        type: SECRET
+      - key: API_KEY
+        value: ${API_KEY}
+        type: SECRET
+      - key: MC_COORDINATOR_AGENT
+        value: coordinator
+      - key: NEXT_PUBLIC_COORDINATOR_AGENT
+        value: coordinator
+      - key: ANTHROPIC_API_KEY
+        value: ${ANTHROPIC_API_KEY}
+        type: SECRET
+      - key: XAI_API_KEY
+        value: ${XAI_API_KEY}
+        type: SECRET
+      - key: TAVILY_API_KEY
+        value: ${TAVILY_API_KEY}
+        type: SECRET
+      - key: GMAIL_USER
+        value: ${GMAIL_USER}
+        type: SECRET
+      - key: GMAIL_PASS
+        value: ${GMAIL_PASS}
+        type: SECRET
+      - key: MC_TRACKING_URL
+        value: ${MC_TRACKING_URL}
+        type: SECRET
+    mounts:
+      - name: mission-control-data
+        mount_path: /app/data
+storage:
+  volumes:
+    - name: mission-control-data
+      size_gib: 1

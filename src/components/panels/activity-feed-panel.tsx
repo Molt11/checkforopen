@@ -46,6 +46,7 @@ const activityIcons: Record<string, string> = {
   standup_generated: '!',
   mention: '>',
   assignment: '=',
+  email_opened: '✉',
 }
 
 const activityColors: Record<string, string> = {
@@ -58,6 +59,7 @@ const activityColors: Record<string, string> = {
   standup_generated: 'text-orange-400',
   mention: 'text-pink-400',
   assignment: 'text-indigo-400',
+  email_opened: 'text-green-400',
 }
 
 function formatRelativeTime(timestamp: number) {

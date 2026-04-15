@@ -94,10 +94,27 @@ export function useWebSocket() {
   const isNonRetryableGatewayError = useCallback((message: string, error?: GatewayFrame['error']): boolean => {
     // Prefer structured error code when available (newer gateways)
     const code = readErrorDetailCode(error)
-    if (code && NON_RETRYABLE_ERROR_CODES.has(code)) return true
+    if (code && NON_RETRYABLE_ERROR_CODES.has(code)) {
+      // Signature errors are retryable if we haven't tried fallback yet
+      if (code === ConnectErrorDetailCodes.DEVICE_SIGNATURE_INVALID && !tokenOnlyFallbackRef.current) {
+        return false
+      }
+      return true
+    }
 
     // Fallback: string matching for older gateways without structured codes
     const normalized = message.toLowerCase()
+
+    // Device identity errors are retryable if we haven't tried fallback yet
+    if (
+      (normalized.includes('device identity required') ||
+       normalized.includes('requires device identity') ||
+       normalized.includes('secure context')) &&
+      !tokenOnlyFallbackRef.current
+    ) {
+      return false
+    }
+
     return (
       normalized.includes('origin not allowed') ||
       normalized.includes('device identity required') ||
@@ -230,7 +247,16 @@ export function useWebSocket() {
     const authToken = authTokenRef.current || undefined
     const tokenForSignature = authToken ?? cachedToken ?? ''
 
-    if (nonce && !tokenOnlyFallbackRef.current) {
+    const instanceId = `mc-${Date.now()}`
+    const proactiveNonce = nonce || instanceId
+    
+    if (nonce) {
+      log.info('Using challenge nonce for handshake')
+    } else {
+      log.info('Using proactive self-challenge nonce for handshake')
+    }
+
+    if (!tokenOnlyFallbackRef.current) {
       try {
         const identity = await getOrCreateDeviceIdentity()
         const signedAt = Date.now()
@@ -244,7 +270,7 @@ export function useWebSocket() {
           scopes.join(','),
           String(signedAt),
           tokenForSignature,
-          nonce,
+          proactiveNonce,
         ].join('|')
 
         const { signature } = await signPayload(identity.privateKey, payload, signedAt)
@@ -253,7 +279,7 @@ export function useWebSocket() {
           publicKey: identity.publicKeyBase64,
           signature,
           signedAt,
-          nonce,
+          nonce: proactiveNonce,
         }
       } catch (err) {
         log.warn('Device identity unavailable, proceeding without:', err)
@@ -273,7 +299,7 @@ export function useWebSocket() {
           version: APP_VERSION,
           platform: 'web',
           mode: clientMode,
-          instanceId: `mc-${Date.now()}`
+          instanceId
         },
         role,
         scopes,

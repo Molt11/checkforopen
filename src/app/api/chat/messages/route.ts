@@ -46,7 +46,7 @@ function parseGatewayJson(raw: string): any | null {
   }
 }
 
-function toGatewayAttachments(value: unknown): Array<{ type: 'image'; mimeType: string; fileName?: string; content: string }> | undefined {
+function toGatewayAttachments(value: unknown): Array<{ type: 'file' | 'image' | 'video'; mimeType: string; fileName?: string; content: string }> | undefined {
   if (!Array.isArray(value)) return undefined
 
   const attachments = value.flatMap((entry) => {
@@ -54,9 +54,13 @@ function toGatewayAttachments(value: unknown): Array<{ type: 'image'; mimeType: 
     if (!file || typeof file !== 'object' || typeof file.dataUrl !== 'string') return []
     const match = /^data:([^;]+);base64,(.+)$/.exec(file.dataUrl)
     if (!match) return []
-    if (!match[1].startsWith('image/')) return []
+    
+    let type: 'image' | 'video' | 'file' = 'file'
+    if (match[1].startsWith('image/')) type = 'image'
+    else if (match[1].startsWith('video/')) type = 'video'
+    
     return [{
-      type: 'image' as const,
+      type,
       mimeType: match[1],
       fileName: typeof file.name === 'string' ? file.name : undefined,
       content: match[2],

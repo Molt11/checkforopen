@@ -30,13 +30,21 @@ export async function GET(request: NextRequest) {
 
   if (action === 'list') {
     try {
-      const res = await fetchGateway('/api/presence')
+      const res = await fetchGateway('/api/rpc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'system-presence', params: {} }),
+      })
       if (!res.ok) {
         logger.warn({ status: res.status }, 'Gateway presence endpoint returned non-OK')
         return NextResponse.json({ nodes: [], connected: false })
       }
       const data = await res.json()
-      return NextResponse.json(data)
+      // OpenClaw 2.x returns presence entries directly or as a list
+      return NextResponse.json({ 
+        nodes: Array.isArray(data) ? data : (data.entries || []), 
+        connected: true 
+      })
     } catch (err) {
       logger.warn({ err }, 'Gateway unreachable for presence listing')
       return NextResponse.json({ nodes: [], connected: false })
@@ -45,7 +53,11 @@ export async function GET(request: NextRequest) {
 
   if (action === 'devices') {
     try {
-      const res = await fetchGateway('/api/devices')
+      const res = await fetchGateway('/api/rpc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'device.pair.list', params: {} }),
+      })
       if (!res.ok) {
         logger.warn({ status: res.status }, 'Gateway devices endpoint returned non-OK')
         return NextResponse.json({ devices: [] })

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Loader } from '@/components/ui/loader'
 import { createClientLogger } from '@/lib/client-logger'
 import Link from 'next/link'
+import { AgentStatusParticles } from '@/components/ui/agent-status-particles'
 
 const log = createClientLogger('AgentDetailTabs')
 
@@ -132,8 +133,10 @@ export function OverviewTab({
   }
 
   return (
-    <div className="p-5">
-      <div className="grid md:grid-cols-[1fr_1fr] gap-5">
+    <div className="p-5 relative min-h-[400px]">
+      <AgentStatusParticles isLive={agent.status !== 'offline'} className="opacity-40" />
+      <div className="relative z-10">
+        <div className="grid md:grid-cols-[1fr_1fr] gap-5">
         {/* Left Column — Agent Details */}
         <div className="space-y-4">
           {/* Status + Actions row */}
@@ -319,6 +322,7 @@ export function OverviewTab({
             </div>
           </form>
         </div>
+      </div>
       </div>
     </div>
   )

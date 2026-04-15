@@ -68,7 +68,9 @@ export function shouldRetryWithoutDeviceIdentity(
     normalized.includes('device_auth_signature_invalid') ||
     normalized.includes('device signature invalid') ||
     normalized.includes('invalid device token') ||
-    normalized.includes('device token invalid')
+    normalized.includes('device token invalid') ||
+    normalized.includes('device identity required') ||
+    normalized.includes('requires device identity')
   )
 }
 

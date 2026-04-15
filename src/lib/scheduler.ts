@@ -12,6 +12,47 @@ import { syncLocalAgents } from './local-agent-sync'
 import { dispatchAssignedTasks, runAegisReviews } from './task-dispatch'
 import { spawnRecurringTasks } from './recurring-tasks'
 
+/** Run outreach follow-ups */
+async function runOutreachFollowups(): Promise<{ ok: boolean; message: string }> {
+  try {
+    const db = getDatabase()
+    const now = Math.floor(Date.now() / 1000)
+    
+    // Find due follow-ups
+    const due = db.prepare(`
+      SELECT id, receiver, body, followup_at
+      FROM email_tracking
+      WHERE status = 'sent' AND followup_at IS NOT NULL AND followup_at <= ?
+    `).all(now) as any[]
+
+    if (due.length === 0) return { ok: true, message: 'No follow-ups due' }
+
+    // Logic for follow-up: send a notification to the system agent or trigger a new email
+    // For now, we'll mark them as 'followup_due' so the user sees them prominently
+    const update = db.prepare("UPDATE email_tracking SET status = 'followup_due' WHERE id = ?")
+    
+    db.transaction(() => {
+      for (const item of due) {
+        update.run(item.id)
+        
+        // Also create a notification
+        db.prepare(`
+          INSERT INTO notifications (recipient, type, title, message, source_type, source_id)
+          VALUES ('system', 'outreach', ?, ?, 'outreach', ?)
+        `).run(
+          `Follow-up due: ${item.receiver}`,
+          `A follow-up was scheduled for the email sent to ${item.receiver}.`,
+          item.id
+        )
+      }
+    })()
+
+    return { ok: true, message: `Processed ${due.length} follow-up(s)` }
+  } catch (err: any) {
+    return { ok: false, message: `Follow-up processing failed: ${err.message}` }
+  }
+}
+
 const BACKUP_DIR = join(dirname(config.dbPath), 'backups')
 
 interface ScheduledTask {
@@ -330,6 +371,15 @@ export function initScheduler() {
     running: false,
   })
 
+  tasks.set('outreach_followups', {
+    name: 'Outreach Followups',
+    intervalMs: TICK_MS, // Every 60s
+    lastRun: null,
+    nextRun: now + 40_000, // First check 40s after startup
+    enabled: true,
+    running: false,
+  })
+
   // Start the tick loop
   tickInterval = setInterval(tick, TICK_MS)
   logger.info('Scheduler initialized - backup at ~3AM, cleanup at ~4AM, heartbeat every 5m, webhook/claude/skill/local-agent/gateway-agent sync every 60s')
@@ -364,8 +414,9 @@ async function tick() {
       : id === 'task_dispatch' ? 'general.task_dispatch'
       : id === 'aegis_review' ? 'general.aegis_review'
       : id === 'recurring_task_spawn' ? 'general.recurring_task_spawn'
+      : id === 'outreach_followups' ? 'general.outreach_followups'
       : 'general.agent_heartbeat'
-    const defaultEnabled = id === 'agent_heartbeat' || id === 'webhook_retry' || id === 'claude_session_scan' || id === 'skill_sync' || id === 'local_agent_sync' || id === 'gateway_agent_sync' || id === 'task_dispatch' || id === 'aegis_review' || id === 'recurring_task_spawn'
+    const defaultEnabled = id === 'agent_heartbeat' || id === 'webhook_retry' || id === 'claude_session_scan' || id === 'skill_sync' || id === 'local_agent_sync' || id === 'gateway_agent_sync' || id === 'task_dispatch' || id === 'aegis_review' || id === 'recurring_task_spawn' || id === 'outreach_followups'
     if (!isSettingEnabled(settingKey, defaultEnabled)) continue
 
     task.running = true
@@ -380,6 +431,7 @@ async function tick() {
         : id === 'task_dispatch' ? await dispatchAssignedTasks()
         : id === 'aegis_review' ? await runAegisReviews()
         : id === 'recurring_task_spawn' ? await spawnRecurringTasks()
+        : id === 'outreach_followups' ? await runOutreachFollowups()
         : await runCleanup()
       task.lastResult = { ...result, timestamp: now }
     } catch (err: any) {
