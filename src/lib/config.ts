@@ -9,7 +9,9 @@ function clampInt(value: number, min: number, max: number, fallback: number): nu
 }
 
 const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build'
-const defaultDataDir = path.join(process.cwd(), '.data')
+const defaultDataDir = process.env.NODE_ENV === 'production' 
+  ? '/app/data' 
+  : path.join(process.cwd(), '.data')
 const configuredDataDir = process.env.MISSION_CONTROL_DATA_DIR || defaultDataDir
 const buildScratchRoot =
   process.env.MISSION_CONTROL_BUILD_DATA_DIR ||
