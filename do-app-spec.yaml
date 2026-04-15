@@ -30,6 +30,10 @@ services:
         value: coordinator
       - key: NEXT_PUBLIC_COORDINATOR_AGENT
         value: coordinator
+      - key: MC_COOKIE_SECURE
+        value: "1"
+      - key: MC_ALLOW_ANY_HOST
+        value: "1"
       - key: ANTHROPIC_API_KEY
         value: ${ANTHROPIC_API_KEY}
         type: SECRET
