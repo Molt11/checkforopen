@@ -12,7 +12,7 @@ const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build'
 const defaultDataDir = process.env.NODE_ENV === 'production' 
   ? '/app/data' 
   : path.join(process.cwd(), '.data')
-const configuredDataDir = process.env.MISSION_CONTROL_DATA_DIR || defaultDataDir
+const configuredDataDir = process.env.MISSION_CONTROL_DATA_DIR || process.env.DATA_DIR || defaultDataDir
 const buildScratchRoot =
   process.env.MISSION_CONTROL_BUILD_DATA_DIR ||
   path.join(os.tmpdir(), 'mission-control-build')
@@ -23,11 +23,13 @@ const resolvedDbPath = isBuildPhase
   ? (process.env.MISSION_CONTROL_BUILD_DB_PATH ||
       path.join(resolvedDataDir, 'mission-control.db'))
   : (process.env.MISSION_CONTROL_DB_PATH ||
+      process.env.DB_PATH ||
       path.join(resolvedDataDir, 'mission-control.db'))
 const resolvedTokensPath = isBuildPhase
   ? (process.env.MISSION_CONTROL_BUILD_TOKENS_PATH ||
       path.join(resolvedDataDir, 'mission-control-tokens.json'))
   : (process.env.MISSION_CONTROL_TOKENS_PATH ||
+      process.env.TOKENS_PATH ||
       path.join(resolvedDataDir, 'mission-control-tokens.json'))
 const defaultOpenClawStateDir = path.join(os.homedir(), '.openclaw')
 const explicitOpenClawConfigPath =
