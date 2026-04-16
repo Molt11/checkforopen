@@ -55,6 +55,12 @@ services:
       - key: GMAIL_PASS
         value: ${GMAIL_PASS}
         type: SECRET
+      - key: GITHUB_TOKEN
+        value: ${GITHUB_TOKEN}
+        type: SECRET
+      - key: AUTH_SECRET
+        value: ${AUTH_SECRET}
+        type: SECRET
       - key: MC_TRACKING_URL
         value: ${MC_TRACKING_URL}
         type: SECRET
