@@ -26,6 +26,9 @@ RUN pnpm build
 
 FROM node:24-slim AS runtime
 
+# Install procps for ps and uptime commands used by diagnostics/scheduler
+RUN apt-get update && apt-get install -y procps --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 ARG MC_VERSION=dev
 LABEL org.opencontainers.image.source="https://github.com/openclaw/mission-control"
 LABEL org.opencontainers.image.description="Mission Control - operations dashboard"
