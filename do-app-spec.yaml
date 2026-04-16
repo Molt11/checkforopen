@@ -64,6 +64,8 @@ services:
       - key: MC_TRACKING_URL
         value: ${MC_TRACKING_URL}
         type: SECRET
+      - key: NEXT_IMAGE_OPTIMIZATION_CACHE
+        value: "0"
     mounts:
       - name: mission-control-data
         mount_path: /app/data

@@ -51,6 +51,7 @@ EXPOSE 3000
 ENV HOSTNAME=0.0.0.0
 ENV MISSION_CONTROL_REPO_ROOT=/app
 ENV OPENCLAW_BIN=/app/node_modules/.bin/openclaw
+ENV NEXT_IMAGE_OPTIMIZATION_CACHE=0
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
 
