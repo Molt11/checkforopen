@@ -3,7 +3,7 @@ region: nyc
 services:
   - name: mission-control-app
     instance_count: 1
-    instance_size_slug: basic-xs
+    instance_size_slug: basic-s
     dockerfile_path: mission-control/Dockerfile
     source_dir: mission-control
     http_port: 3000
