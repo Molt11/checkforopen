@@ -26,6 +26,9 @@ RUN pnpm build
 
 FROM node:24-slim AS runtime
 
+# Install procps for ps and uptime commands used by diagnostics/scheduler
+RUN apt-get update && apt-get install -y procps --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 ARG MC_VERSION=dev
 LABEL org.opencontainers.image.source="https://github.com/openclaw/mission-control"
 LABEL org.opencontainers.image.description="Mission Control - operations dashboard"
@@ -46,6 +49,8 @@ USER nextjs
 ENV PORT=3000
 EXPOSE 3000
 ENV HOSTNAME=0.0.0.0
+ENV MISSION_CONTROL_REPO_ROOT=/app
+ENV OPENCLAW_BIN=/app/node_modules/.bin/openclaw
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
 

@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action')
 
     if (action === 'stats') {
-      return await handleGitHubStats()
+      const repo = searchParams.get('repo') || process.env.GITHUB_DEFAULT_REPO
+      return await handleGitHubStats(repo)
     }
 
     if (action !== 'issues') {
@@ -343,7 +344,7 @@ function handleStatus(workspaceId: number) {
 
 // ── Stats: GitHub user profile + repo overview ──────────────────
 
-async function handleGitHubStats() {
+async function handleGitHubStats(repoOverride?: string | null) {
   const token = getGitHubToken()
   if (!token) {
     return NextResponse.json({ error: 'GITHUB_TOKEN not configured' }, { status: 400 })
@@ -355,6 +356,30 @@ async function handleGitHubStats() {
     return NextResponse.json({ error: 'Failed to fetch GitHub user' }, { status: 500 })
   }
   const user = await userRes.json() as Record<string, any>
+
+  // If a specific repo is requested, fetch its stats directly
+  if (repoOverride && /^[^/]+\/[^/]+$/.test(repoOverride)) {
+    const repoRes = await githubFetch(`/repos/${repoOverride}`)
+    if (repoRes.ok) {
+      const r = await repoRes.json() as Record<string, any>
+      return NextResponse.json({
+        user,
+        recent_repos: [{
+          name: r.full_name,
+          description: r.description,
+          language: r.language,
+          stars: r.stargazers_count,
+          forks: r.forks_count,
+          open_issues: r.open_issues_count,
+          pushed_at: r.pushed_at,
+          is_fork: r.fork,
+          is_private: r.private,
+          html_url: r.html_url,
+        }],
+        top_languages: r.language ? [{ name: r.language, count: 1 }] : [],
+      })
+    }
+  }
 
   // Fetch repos (up to 100, sorted by recent push)
   const reposRes = await githubFetch('/user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator')
