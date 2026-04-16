@@ -46,6 +46,8 @@ USER nextjs
 ENV PORT=3000
 EXPOSE 3000
 ENV HOSTNAME=0.0.0.0
+ENV MISSION_CONTROL_REPO_ROOT=/app
+ENV OPENCLAW_BIN=/app/node_modules/.bin/openclaw
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
 

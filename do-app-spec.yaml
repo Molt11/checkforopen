@@ -30,10 +30,16 @@ services:
         value: coordinator
       - key: NEXT_PUBLIC_COORDINATOR_AGENT
         value: coordinator
+      - key: MISSION_CONTROL_REPO_ROOT
+        value: /app
       - key: MC_COOKIE_SECURE
-        value: "1"
+        value: "0"
       - key: MC_ALLOW_ANY_HOST
         value: "1"
+      - key: MC_ALLOWED_HOSTS
+        value: localhost,127.0.0.1,.digitalocean.app
+      - key: OPENCLAW_BIN
+        value: /app/node_modules/.bin/openclaw
       - key: ANTHROPIC_API_KEY
         value: ${ANTHROPIC_API_KEY}
         type: SECRET
