@@ -69,7 +69,11 @@ services:
     mounts:
       - name: mission-control-data
         mount_path: /app/data
+      - name: mission-control-next-cache
+        mount_path: /app/.next/cache
 storage:
   volumes:
     - name: mission-control-data
+      size_gib: 1
+    - name: mission-control-next-cache
       size_gib: 1

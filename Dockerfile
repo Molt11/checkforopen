@@ -38,12 +38,15 @@ LABEL org.opencontainers.image.version="${MC_VERSION}"
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
-COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy schema.sql needed by migration 001_init at runtime
-COPY --from=build /app/src/lib/schema.sql ./src/lib/schema.sql
+COPY --from=build --chown=nextjs:nodejs /app/src/lib/schema.sql ./src/lib/schema.sql
 # Create data directory with correct ownership for SQLite
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
+# Create cache directory with correct ownership for Next.js ISR
+RUN mkdir -p /app/.next/cache && chown nextjs:nodejs /app/.next/cache
 RUN echo 'const http=require("http");const r=http.get("http://localhost:"+(process.env.PORT||3000)+"/api/status?action=health",s=>{process.exit(s.statusCode===200?0:1)});r.on("error",()=>process.exit(1));r.setTimeout(4000,()=>{r.destroy();process.exit(1)})' > /app/healthcheck.js
 USER nextjs
 ENV PORT=3000
