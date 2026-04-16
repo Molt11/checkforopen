@@ -27,14 +27,14 @@ export function getMcSessionCookieOptions(input: { maxAgeSeconds: number; isSecu
   const secureEnv = envFlag('MC_COOKIE_SECURE')
   // Explicit env wins. Otherwise auto-detect: only set secure if request came over HTTPS.
   // Falls back to NODE_ENV=production when no request hint is available.
-  const secure = secureEnv ?? input.isSecureRequest ?? process.env.NODE_ENV === 'production'
+  const secure = secureEnv ?? input.isSecureRequest ?? (process.env.NODE_ENV === 'production')
 
-  // Strict is safest for this app (same-site UI + API), but allow override for edge cases.
-  const sameSiteRaw = (process.env.MC_COOKIE_SAMESITE || 'strict').toLowerCase()
+  // Lax is more compatible for cross-domain redirects often found in cloud deployments.
+  const sameSiteRaw = (process.env.MC_COOKIE_SAMESITE || 'lax').toLowerCase()
   const sameSite: ResponseCookie['sameSite'] =
-    sameSiteRaw === 'lax' ? 'lax' :
+    sameSiteRaw === 'strict' ? 'strict' :
     sameSiteRaw === 'none' ? 'none' :
-    'strict'
+    'lax'
 
   return {
     httpOnly: true,
