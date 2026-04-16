@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { authenticateUser, createSession } from '@/lib/auth'
 import { logAuditEvent } from '@/lib/db'
-import { getMcSessionCookieOptions } from '@/lib/session-cookie'
+import { getMcSessionCookieOptions, MC_SESSION_COOKIE_NAME } from '@/lib/session-cookie'
 import { loginLimiter } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
 
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const isSecureRequest = request.headers.get('x-forwarded-proto') === 'https'
       || new URL(request.url).protocol === 'https:'
 
-    response.cookies.set('mc-session', token, {
+    response.cookies.set(MC_SESSION_COOKIE_NAME, token, {
       ...getMcSessionCookieOptions({ maxAgeSeconds: expiresAt - Math.floor(Date.now() / 1000), isSecureRequest }),
     })
 
