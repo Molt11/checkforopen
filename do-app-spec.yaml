@@ -33,7 +33,7 @@ services:
       - key: MISSION_CONTROL_REPO_ROOT
         value: /app
       - key: MC_COOKIE_SECURE
-        value: "0"
+        value: "1"
       - key: MC_ALLOW_ANY_HOST
         value: "1"
       - key: MC_ALLOWED_HOSTS
