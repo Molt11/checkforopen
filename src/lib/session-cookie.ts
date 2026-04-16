@@ -29,12 +29,12 @@ export function getMcSessionCookieOptions(input: { maxAgeSeconds: number; isSecu
   // Falls back to NODE_ENV=production when no request hint is available.
   const secure = secureEnv ?? input.isSecureRequest ?? (process.env.NODE_ENV === 'production')
 
-  // Lax is more compatible for cross-domain redirects often found in cloud deployments.
-  const sameSiteRaw = (process.env.MC_COOKIE_SAMESITE || 'lax').toLowerCase()
+  // None is often required for cloud providers like DigitalOcean when using their provided subdomains
+  const sameSiteRaw = (process.env.MC_COOKIE_SAMESITE || 'none').toLowerCase()
   const sameSite: ResponseCookie['sameSite'] =
     sameSiteRaw === 'strict' ? 'strict' :
-    sameSiteRaw === 'none' ? 'none' :
-    'lax'
+    sameSiteRaw === 'lax' ? 'lax' :
+    'none'
 
   return {
     httpOnly: true,
