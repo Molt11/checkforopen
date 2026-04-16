@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
 import { getDatabase } from '@/lib/db'
+import { config } from '@/lib/config'
 import { getDetectedGatewayPort, getDetectedGatewayToken } from '@/lib/gateway-runtime'
 
 interface GatewayEntry {
@@ -54,13 +55,28 @@ export async function GET(request: NextRequest) {
   // If no gateways exist, seed defaults from environment
   if (gateways.length === 0) {
     const name = String(process.env.MC_DEFAULT_GATEWAY_NAME || 'primary')
-    const host = String(process.env.OPENCLAW_GATEWAY_HOST || '127.0.0.1')
-    const mainPort = getDetectedGatewayPort() || parseInt(process.env.NEXT_PUBLIC_GATEWAY_PORT || '18789')
+    let host = config.gatewayHost
+    let port = config.gatewayPort
+
+    // If we have a full URL in config.gatewayUrl, use it as host if it contains protocol
+    // so that buildGatewayWebSocketUrl can handle it correctly.
+    if (process.env.OPENCLAW_GATEWAY_URL) {
+      host = process.env.OPENCLAW_GATEWAY_URL
+      // Extract port if possible, otherwise use 443 for https or 80 for http
+      try {
+        const url = new URL(process.env.OPENCLAW_GATEWAY_URL)
+        host = process.env.OPENCLAW_GATEWAY_URL // Keep full URL in host field
+        port = url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80)
+      } catch {
+        // ignore
+      }
+    }
+
     const mainToken = getDetectedGatewayToken()
 
     db.prepare(`
       INSERT INTO gateways (name, host, port, token, is_primary) VALUES (?, ?, ?, ?, 1)
-    `).run(name, host, mainPort, mainToken)
+    `).run(name, host, port, mainToken)
 
     const seeded = db.prepare('SELECT * FROM gateways ORDER BY is_primary DESC, name ASC').all() as GatewayEntry[]
     return NextResponse.json({ gateways: redactTokens(seeded) })

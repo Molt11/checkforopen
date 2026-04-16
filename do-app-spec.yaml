@@ -68,6 +68,11 @@ services:
         value: https://whale-app-jqmaz.ondigitalocean.app
       - key: NEXT_IMAGE_OPTIMIZATION_CACHE
         value: "0"
+      - key: OPENCLAW_GATEWAY_URL
+        value: https://perkiness-unarmored-chapped.ngrok-free.dev
+      - key: OPENCLAW_GATEWAY_TOKEN
+        value: ${OPENCLAW_GATEWAY_TOKEN}
+        type: SECRET
     mounts:
       - name: mission-control-data
         mount_path: /app/data

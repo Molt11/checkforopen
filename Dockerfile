@@ -13,7 +13,7 @@ RUN pnpm config set supportedArchitectures --json '{"os": ["linux"], "cpu": ["x6
 # better-sqlite3 requires native compilation tools
 RUN apt-get update && apt-get install -y python3 make g++ --no-install-recommends && rm -rf /var/lib/apt/lists/*
 RUN if [ -f pnpm-lock.yaml ]; then \
-      pnpm install --frozen-lockfile; \
+      pnpm install --no-frozen-lockfile; \
     else \
       echo "WARN: pnpm-lock.yaml not found in build context; running non-frozen install" && \
       pnpm install --no-frozen-lockfile; \

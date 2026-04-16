@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger'
 const GATEWAY_TIMEOUT = 5000
 
 function gatewayUrl(path: string): string {
-  return `http://${config.gatewayHost}:${config.gatewayPort}${path}`
+  return `${config.gatewayUrl}${path}`
 }
 
 async function fetchGateway(path: string, init?: RequestInit): Promise<Response> {

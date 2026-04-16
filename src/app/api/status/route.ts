@@ -13,7 +13,7 @@ import { logger } from '@/lib/logger'
 import { detectProviderSubscriptions, getPrimarySubscription } from '@/lib/provider-subscriptions'
 import { APP_VERSION } from '@/lib/version'
 import { isHermesInstalled, scanHermesSessions } from '@/lib/hermes-sessions'
-import { registerMcAsDashboard } from '@/lib/gateway-runtime'
+import { registerMcAsDashboard, getDetectedGatewayToken } from '@/lib/gateway-runtime'
 
 export async function GET(request: NextRequest) {
   const auth = requireRole(request, 'viewer')
@@ -373,7 +373,8 @@ async function getGatewayStatus() {
     pid: null,
     uptime: 0,
     version: null,
-    connections: 0
+    connections: 0,
+    url: config.gatewayUrl
   }
 
   try {
@@ -389,13 +390,16 @@ async function getGatewayStatus() {
       gatewayStatus.pid = parts[0]
     }
   } catch (error) {
-    // Gateway not running
+    // Gateway not running locally
   }
 
   try {
-    gatewayStatus.port_listening = await isPortOpen(config.gatewayHost, config.gatewayPort)
+    gatewayStatus.port_listening = await isGatewayAlive(config.gatewayUrl)
+    if (gatewayStatus.port_listening) {
+      gatewayStatus.running = true
+    }
   } catch (error) {
-    logger.error({ err: error }, 'Error checking port')
+    logger.error({ err: error }, 'Error checking gateway status')
   }
 
   try {
@@ -614,7 +618,7 @@ async function getCapabilities(request?: NextRequest) {
     // ignore — fall through to default probe
   }
 
-  const gateway = gatewayReachable || await isPortOpen(config.gatewayHost, config.gatewayPort)
+  const gateway = gatewayReachable || await isGatewayAlive(config.gatewayUrl)
 
   const openclawHome = Boolean(
     (config.openclawStateDir && existsSync(config.openclawStateDir)) ||
@@ -729,4 +733,36 @@ function isPortOpen(host: string, port: number): Promise<boolean> {
 
     socket.connect(port, host)
   })
+}
+
+async function isGatewayAlive(url: string): Promise<boolean> {
+  // If it's a local address and not a full URL (just host:port), use isPortOpen
+  if (!url.startsWith('http')) {
+    const [host, port] = url.split(':')
+    return isPortOpen(host || '127.0.0.1', parseInt(port || '18789'))
+  }
+
+  try {
+    const token = getDetectedGatewayToken()
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 2000)
+    
+    const res = await fetch(`${url}/api/health`, {
+      headers,
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    return res.ok
+  } catch {
+    // Fallback to TCP probe if HTTP fails or is blocked
+    try {
+      const parsed = new URL(url)
+      return isPortOpen(parsed.hostname, parseInt(parsed.port) || (parsed.protocol === 'https:' ? 443 : 80))
+    } catch {
+      return false
+    }
+  }
 }
