@@ -43,6 +43,7 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy schema.sql needed by migration 001_init at runtime
 COPY --from=build --chown=nextjs:nodejs /app/src/lib/schema.sql ./src/lib/schema.sql
+COPY --from=build --chown=nextjs:nodejs /app/scripts ./scripts
 # Create data directory with correct ownership for SQLite
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 # Create cache directory with correct ownership for Next.js ISR
@@ -58,5 +59,5 @@ ENV NEXT_IMAGE_OPTIMIZATION_CACHE=0
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
 
-# Wrapper to ensure writable directory even if volume mount is root-owned
-CMD ["sh", "-c", "mkdir -p /app/data/db && node server.js"]
+# Entrypoint script starts both gateway and server
+CMD ["./scripts/prod-entrypoint.sh"]

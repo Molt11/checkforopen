@@ -1245,6 +1245,29 @@ const migrations: Migration[] = [
       db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_api_keys_expires_at ON agent_api_keys(expires_at)`)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_api_keys_revoked_at ON agent_api_keys(revoked_at)`)
     }
+  },
+  {
+    id: '041_email_tracking',
+    up(db: Database.Database) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS email_tracking (
+            id TEXT PRIMARY KEY,
+            recipient TEXT NOT NULL,
+            subject TEXT,
+            body TEXT,
+            status TEXT NOT NULL DEFAULT 'sent',
+            sent_at INTEGER NOT NULL DEFAULT (unixepoch()),
+            opened_at INTEGER,
+            ip_address TEXT,
+            user_agent TEXT,
+            workspace_id INTEGER NOT NULL DEFAULT 1,
+            followup_at INTEGER,
+            followup_status TEXT DEFAULT 'none'
+        )
+      `)
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_email_tracking_status ON email_tracking(status)`)
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_email_tracking_recipient ON email_tracking(recipient)`)
+    }
   }
 ]
 
