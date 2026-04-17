@@ -76,6 +76,20 @@ export default function LoginPage() {
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
 
+  // Check if noAuth is enabled on page load — auto-redirect to /
+  useEffect(() => {
+    fetch('/api/status?action=capabilities')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.noAuth) {
+          window.location.href = '/'
+        }
+      })
+      .catch(() => {
+        // Ignore — noAuth check is best-effort
+      })
+  }, [])
+
   // Check if first-time setup is needed on page load — auto-redirect to /setup
   useEffect(() => {
     fetch('/api/setup')
