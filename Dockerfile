@@ -1,4 +1,4 @@
-FROM node:24-slim AS base
+FROM node:24-bullseye-slim AS base
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
 
-FROM node:24-slim AS runtime
+FROM node:24-bullseye-slim AS runtime
 
 # Install procps, git (required for openclaw install), and ca-certificates
 RUN apt-get update && apt-get install -y \

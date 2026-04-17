@@ -17,8 +17,10 @@ import { registerMcAsDashboard, getDetectedGatewayToken } from '@/lib/gateway-ru
 
 export async function GET(request: NextRequest) {
   // Docker/Kubernetes health probes must work without auth/cookies.
-  const preAction = new URL(request.url).searchParams.get('action') || 'overview'
-  if (preAction === 'health') {
+  const { searchParams } = new URL(request.url)
+  const action = searchParams.get('action') || 'health' // Default to health for bare requests
+  
+  if (action === 'health') {
     const health = await performHealthCheck()
     return NextResponse.json(health)
   }
@@ -27,9 +29,6 @@ export async function GET(request: NextRequest) {
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   try {
-    const { searchParams } = new URL(request.url)
-    const action = searchParams.get('action') || 'overview'
-
     if (action === 'overview') {
       const status = await getSystemStatus(auth.user.workspace_id ?? 1)
       return NextResponse.json(status)

@@ -91,8 +91,20 @@ else
 fi
 
 echo "[entrypoint] Starting Mission Control Server on PORT=${PORT:-3000}..."
+echo "[entrypoint] Current user: $(id -u -n)"
+echo "[entrypoint] Working directory: $(pwd)"
+
+# Final permission fix for the data directory
+if [ -d "/app/data" ]; then
+    echo "[entrypoint] Verifying /app/data permissions..."
+fi
+
 # Start the Next.js standalone server
 if [ -f "server.js" ]; then
+    # Ensure node_modules exists (even as a symlink or empty dir)
+    if [ ! -d "node_modules" ]; then
+        echo "[entrypoint] WARNING: node_modules not found in $(pwd), server might fail"
+    fi
     exec node server.js
 else
     echo "[entrypoint] ERROR: server.js not found in $(pwd)"
