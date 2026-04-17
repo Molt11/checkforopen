@@ -131,6 +131,12 @@ function extractApiKeyFromRequest(request: NextRequest): string {
 }
 
 export function proxy(request: NextRequest) {
+  // --- Bypass Auth (DigitalOcean / Single User Mode) ---
+  if (process.env.MC_NO_AUTH === '1' || process.env.MC_NO_AUTH === 'true') {
+    const { response, nonce } = nextResponseWithNonce(request)
+    return addSecurityHeaders(response, request, nonce)
+  }
+
   // Network access control.
   // In production: default-deny unless explicitly allowed.
   // In dev/test: allow all hosts unless overridden.
