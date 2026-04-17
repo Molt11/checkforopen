@@ -50,25 +50,39 @@ mkdir -p /app/data/db
 
 # Setup OpenClaw environment
 export OPENCLAW_HOME=/app/data/openclaw
+export OPENCLAW_CONFIG_PATH=/app/data/openclaw/openclaw.json
 mkdir -p $OPENCLAW_HOME
+
+# Find openclaw binary
+if [ -f "/app/node_modules/.bin/openclaw" ]; then
+    OC_BIN="/app/node_modules/.bin/openclaw"
+elif command -v openclaw >/dev/null 2>&1; then
+    OC_BIN=$(command -v openclaw)
+else
+    OC_BIN=""
+fi
+
+# Initialize config if it doesn't exist
+if [ ! -f "$OPENCLAW_CONFIG_PATH" ]; then
+    if [ -n "$OC_BIN" ]; then
+        echo "Initializing OpenClaw configuration using $OC_BIN..."
+        $OC_BIN init --non-interactive
+    else
+        echo "Warning: openclaw binary not found. Creating skeleton configuration..."
+        echo '{"agents":{"list":[]}}' > "$OPENCLAW_CONFIG_PATH"
+    fi
+fi
 
 # Check if we are running in Hybrid/Remote mode
 if [ -n "$OPENCLAW_GATEWAY_URL" ] && [ "$OPENCLAW_GATEWAY_URL" != "http://127.0.0.1:18789" ]; then
     echo "Hybrid Mode: Connecting to remote gateway at $OPENCLAW_GATEWAY_URL"
 else
-    # Check if OpenClaw is installed in node_modules for Local/Cloud mode
-    if [ -f "/app/node_modules/.bin/openclaw" ]; then
-        # Initialize config if it doesn't exist
-        if [ ! -f "$OPENCLAW_HOME/openclaw.json" ]; then
-            echo "Initializing OpenClaw configuration..."
-            /app/node_modules/.bin/openclaw init --non-interactive
-        fi
-
+    if [ -n "$OC_BIN" ]; then
         echo "Starting OpenClaw Gateway..."
         # Start the gateway in the background
-        /app/node_modules/.bin/openclaw gateway start --port 18789 &
+        $OC_BIN gateway start --port 18789 &
     else
-        echo "Warning: No remote OPENCLAW_GATEWAY_URL set and OpenClaw binary not found at /app/node_modules/.bin/openclaw"
+        echo "Warning: No remote OPENCLAW_GATEWAY_URL set and OpenClaw binary not found"
     fi
 fi
 
