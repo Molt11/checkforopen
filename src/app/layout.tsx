@@ -110,6 +110,7 @@ export default async function RootLayout({
             themes={THEME_IDS}
             enableSystem={false}
             disableTransitionOnChange
+            nonce={nonce}
           >
             <ThemeBackground />
             <div className="h-screen overflow-hidden bg-background text-foreground">
