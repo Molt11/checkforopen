@@ -412,13 +412,7 @@ export function getUserFromRequest(request: Request): User | null {
 
   // Check session cookie
   const cookieHeader = request.headers.get('cookie') || ''
-<<<<<<< HEAD
-  const isSecureRequest = (request.headers.get('x-forwarded-proto') === 'https' || new URL(request.url).protocol === 'https:')
-  const cookieName = getMcSessionCookieName(isSecureRequest)
-  const sessionToken = parseCookie(cookieHeader, cookieName)
-=======
   const sessionToken = parseMcSessionCookieHeader(cookieHeader)
->>>>>>> v2.0.1
   if (sessionToken) {
     const user = validateSession(sessionToken)
     if (user) return { ...user, agent_name: agentName }

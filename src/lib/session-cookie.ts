@@ -18,7 +18,12 @@ export function isRequestSecure(request: Request): boolean {
 
 export function parseMcSessionCookieHeader(cookieHeader: string): string | null {
   if (!cookieHeader) return null
-  for (const cookieName of MC_SESSION_COOKIE_NAMES) {
+
+  // Check custom env name first
+  const envName = (process.env.MC_SESSION_COOKIE_NAME || '').trim()
+  const namesToTry = envName ? [envName, ...MC_SESSION_COOKIE_NAMES] : MC_SESSION_COOKIE_NAMES
+
+  for (const cookieName of namesToTry) {
     const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${cookieName}=([^;]*)`))
     if (match) {
       return decodeURIComponent(match[1])
