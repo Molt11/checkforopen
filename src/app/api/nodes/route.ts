@@ -13,6 +13,7 @@ interface GatewayEntry {
   port: number
   token: string
   status: string
+  is_primary: number
 }
 
 async function getAllGateways(): Promise<GatewayEntry[]> {
