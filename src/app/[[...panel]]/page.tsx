@@ -218,16 +218,24 @@ export default function Home() {
     }
 
     // Fetch current user
-    fetch('/api/auth/me')
-      .then(async (res) => {
-        if (res.ok) return res.json()
-        if (res.status === 401) {
+    const checkAuth = async (noAuthMode = false) => {
+      try {
+        const res = await fetch('/api/auth/me')
+        if (res.ok) {
+          const data = await res.json()
+          if (data?.user) setCurrentUser(data.user)
+          markStep('auth')
+          return
+        }
+        
+        if (res.status === 401 && !noAuthMode) {
           router.replace(`/login?next=${encodeURIComponent(pathname)}`)
         }
-        return null
-      })
-      .then(data => { if (data?.user) setCurrentUser(data.user); markStep('auth') })
-      .catch(() => { markStep('auth') })
+        markStep('auth')
+      } catch {
+        markStep('auth')
+      }
+    }
 
     // Check for available updates
     fetch('/api/releases/check')
@@ -265,6 +273,9 @@ export default function Home() {
     fetch('/api/status?action=capabilities')
       .then(res => res.ok ? res.json() : null)
       .then(async data => {
+        // Run auth check now that we know if noAuth is enabled
+        checkAuth(data?.noAuth === true)
+
         if (data?.subscription) {
           setSubscription(data.subscription)
         }
@@ -300,7 +311,8 @@ export default function Home() {
         markStep('connect')
       })
       .catch(() => {
-        // If capabilities check fails, still try to connect
+        // If capabilities check fails, still try to connect and check auth
+        checkAuth(false)
         setCapabilitiesChecked(true)
         markStep('capabilities')
         markStep('connect')

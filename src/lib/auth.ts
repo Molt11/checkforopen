@@ -394,6 +394,23 @@ function resolveOrProvisionProxyUser(username: string): User | null {
 }
 
 export function getUserFromRequest(request: Request): User | null {
+  // --- Bypass Auth (DigitalOcean / Single User Mode) ---
+  if (process.env.MC_NO_AUTH === '1' || process.env.MC_NO_AUTH === 'true') {
+    const { workspaceId, tenantId } = getDefaultWorkspaceContext()
+    return {
+      id: 1, // Default admin user ID
+      username: 'admin',
+      display_name: 'Administrator',
+      role: 'admin',
+      workspace_id: workspaceId,
+      tenant_id: tenantId,
+      provider: 'local',
+      created_at: Math.floor(Date.now() / 1000),
+      updated_at: Math.floor(Date.now() / 1000),
+      last_login_at: Math.floor(Date.now() / 1000),
+    }
+  }
+
   // Extract agent identity header (optional, for attribution)
   const agentName = (request.headers.get('x-agent-name') || '').trim() || null
 

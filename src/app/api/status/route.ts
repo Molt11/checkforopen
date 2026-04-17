@@ -708,7 +708,9 @@ async function getCapabilities(request?: NextRequest) {
     }
   }
 
-  return { gateway, openclawHome, claudeHome, claudeSessions, hermesInstalled, hermesSessions, subscription, subscriptions, processUser, interfaceMode, dashboardRegistration }
+  const noAuth = process.env.MC_NO_AUTH === '1' || process.env.MC_NO_AUTH === 'true'
+
+  return { gateway, openclawHome, claudeHome, claudeSessions, hermesInstalled, hermesSessions, subscription, subscriptions, processUser, interfaceMode, dashboardRegistration, noAuth }
 }
 
 function isPortOpen(host: string, port: number): Promise<boolean> {
