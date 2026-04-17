@@ -17,12 +17,14 @@ RUN pnpm install --no-frozen-lockfile && pnpm add openclaw@latest
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Ensure we build for standalone output
-ENV NEXT_PRIVATE_STANDALONE=true
+# Ensure Next.js standalone output is produced
+RUN grep -q "output: 'standalone'" next.config.js || (echo "output: 'standalone'" >> next.config.js)
 RUN pnpm build
 # Verify build output exists before moving to runtime
-RUN test -d .next/standalone || (echo "ERROR: .next/standalone not found. Check next.config.js for output: 'standalone'" && exit 1)
-RUN test -d node_modules/openclaw || (echo "ERROR: node_modules/openclaw not found" && exit 1)
+RUN ls -la .next/standalone || (echo "ERROR: .next/standalone not found after build" && exit 1)
+RUN ls -la .next/standalone/server.js || (echo "ERROR: server.js not found in standalone output" && exit 1)
+# Ensure openclaw is present in node_modules
+RUN test -d node_modules/openclaw || (echo "ERROR: node_modules/openclaw not found. pnpm install might have failed." && exit 1)
 
 FROM node:24-bullseye-slim AS runtime
 
@@ -59,6 +61,8 @@ COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=build --chown=nextjs:nodejs /app/src/lib/schema.sql ./src/lib/schema.sql
 COPY --from=build --chown=nextjs:nodejs /app/scripts ./scripts
 RUN chmod +x /app/scripts/prod-entrypoint.sh
+# Final check for entrypoint existence
+RUN ls -la /app/scripts/prod-entrypoint.sh || (echo "ERROR: prod-entrypoint.sh missing in runtime" && exit 1)
 # Create data directory with correct ownership for SQLite
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 # Create cache directory with correct ownership for Next.js ISR
