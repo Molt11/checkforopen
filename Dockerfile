@@ -17,9 +17,11 @@ RUN pnpm install --no-frozen-lockfile && pnpm add openclaw@latest
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Ensure we build for standalone output
+ENV NEXT_PRIVATE_STANDALONE=true
 RUN pnpm build
 # Verify build output exists before moving to runtime
-RUN test -d .next/standalone || (echo "ERROR: .next/standalone not found" && exit 1)
+RUN test -d .next/standalone || (echo "ERROR: .next/standalone not found. Check next.config.js for output: 'standalone'" && exit 1)
 RUN test -d node_modules/openclaw || (echo "ERROR: node_modules/openclaw not found" && exit 1)
 
 FROM node:24-bullseye-slim AS runtime

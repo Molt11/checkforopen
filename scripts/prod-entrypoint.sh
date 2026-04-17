@@ -60,10 +60,19 @@ elif [ -f "/app/node_modules/.bin/openclaw" ]; then
     OC_BIN="/app/node_modules/.bin/openclaw"
 elif [ -f "/usr/local/bin/openclaw" ]; then
     OC_BIN="/usr/local/bin/openclaw"
+elif [ -f "/usr/bin/openclaw" ]; then
+    OC_BIN="/usr/bin/openclaw"
 elif command -v openclaw >/dev/null 2>&1; then
     OC_BIN=$(command -v openclaw)
 else
     OC_BIN=""
+fi
+
+if [ -n "$OC_BIN" ]; then
+    echo "[entrypoint] Found openclaw binary at: $OC_BIN"
+    $OC_BIN --version || true
+else
+    echo "[entrypoint] WARNING: openclaw binary not found in PATH or standard locations"
 fi
 
 # Initialize config if it doesn't exist
