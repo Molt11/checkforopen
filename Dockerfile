@@ -66,7 +66,7 @@ ENV HOSTNAME=0.0.0.0
 ENV MISSION_CONTROL_REPO_ROOT=/app
 ENV OPENCLAW_BIN=openclaw
 ENV NEXT_IMAGE_OPTIMIZATION_CACHE=0
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD ["node", "/app/healthcheck.js"]
 # Entrypoint script starts both gateway and server
 ENTRYPOINT ["/app/scripts/prod-entrypoint.sh"]
