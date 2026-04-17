@@ -54,8 +54,12 @@ export OPENCLAW_CONFIG_PATH=/app/data/openclaw/openclaw.json
 mkdir -p $OPENCLAW_HOME
 
 # Find openclaw binary
-if [ -f "/app/node_modules/.bin/openclaw" ]; then
+if [ -n "$OPENCLAW_BIN" ] && command -v "$OPENCLAW_BIN" >/dev/null 2>&1; then
+    OC_BIN=$(command -v "$OPENCLAW_BIN")
+elif [ -f "/app/node_modules/.bin/openclaw" ]; then
     OC_BIN="/app/node_modules/.bin/openclaw"
+elif [ -f "/usr/local/bin/openclaw" ]; then
+    OC_BIN="/usr/local/bin/openclaw"
 elif command -v openclaw >/dev/null 2>&1; then
     OC_BIN=$(command -v openclaw)
 else
