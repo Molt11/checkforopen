@@ -6,5 +6,6 @@ node_modules
 *.md
 .github
 ops
-scripts/*
+# Allow necessary scripts
 !scripts/check-node-version.mjs
+!scripts/prod-entrypoint.sh
