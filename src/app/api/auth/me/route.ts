@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest, updateUser, requireRole, destroyAllUserSessions, createSession } from '@/lib/auth'
 import { logAuditEvent } from '@/lib/db'
 import { verifyPassword } from '@/lib/password'
-import { getMcSessionCookieOptions } from '@/lib/session-cookie'
+import { getMcSessionCookieOptions, getMcSessionCookieName } from '@/lib/session-cookie'
 import { logger } from '@/lib/logger'
 
 export async function GET(request: Request) {
@@ -119,7 +119,7 @@ export async function PATCH(request: NextRequest) {
       const { token, expiresAt } = createSession(user.id, ipAddress, userAgent, user.workspace_id ?? 1)
       const isSecureRequest = request.headers.get('x-forwarded-proto') === 'https'
         || new URL(request.url).protocol === 'https:'
-      response.cookies.set('mc-session', token, {
+      response.cookies.set(getMcSessionCookieName(isSecureRequest), token, {
         ...getMcSessionCookieOptions({ maxAgeSeconds: expiresAt - Math.floor(Date.now() / 1000), isSecureRequest }),
       })
     }

@@ -755,6 +755,16 @@ async function isGatewayAlive(url: string): Promise<boolean> {
       signal: controller.signal,
     })
     clearTimeout(timeout)
+    
+    // If /api/health returns 404, try just the root /
+    if (res.status === 404) {
+      const c2 = new AbortController()
+      const t2 = setTimeout(() => c2.abort(), 2000)
+      const res2 = await fetch(url, { headers, signal: c2.signal })
+      clearTimeout(t2)
+      return res2.ok
+    }
+
     return res.ok
   } catch {
     // Fallback to TCP probe if HTTP fails or is blocked

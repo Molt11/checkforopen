@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSession } from '@/lib/auth'
 import { getDatabase, logAuditEvent } from '@/lib/db'
 import { verifyGoogleIdToken } from '@/lib/google-auth'
-import { getMcSessionCookieOptions } from '@/lib/session-cookie'
+import { getMcSessionCookieOptions, getMcSessionCookieName } from '@/lib/session-cookie'
 import { loginLimiter } from '@/lib/rate-limit'
 
 function upsertAccessRequest(input: {
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     const isSecureRequest = request.headers.get('x-forwarded-proto') === 'https'
       || new URL(request.url).protocol === 'https:'
 
-    response.cookies.set('mc-session', token, {
+    response.cookies.set(getMcSessionCookieName(isSecureRequest), token, {
       ...getMcSessionCookieOptions({ maxAgeSeconds: expiresAt - Math.floor(Date.now() / 1000), isSecureRequest }),
     })
 

@@ -66,6 +66,10 @@ services:
         type: SECRET
       - key: MC_BASE_URL
         value: https://whale-app-jqmaz.ondigitalocean.app
+      - key: MC_SESSION_COOKIE_NAME
+        value: mc-session
+      - key: MC_COOKIE_SAMESITE
+        value: lax
       - key: NEXT_IMAGE_OPTIMIZATION_CACHE
         value: "0"
       - key: OPENCLAW_GATEWAY_URL
