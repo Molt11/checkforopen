@@ -79,7 +79,21 @@ fi
 if [ ! -f "$OPENCLAW_CONFIG_PATH" ]; then
     if [ -n "$OC_BIN" ]; then
         echo "Initializing OpenClaw configuration using $OC_BIN..."
-        $OC_BIN init --non-interactive
+        # Try various initialization commands used across different versions
+        if $OC_BIN config init --non-interactive 2>/dev/null; then
+            echo "Successfully initialized config via 'config init'"
+        elif $OC_BIN gateway init --non-interactive 2>/dev/null; then
+            echo "Successfully initialized config via 'gateway init'"
+        elif $OC_BIN configure --non-interactive 2>/dev/null || $OC_BIN configure --yes 2>/dev/null; then
+            echo "Successfully initialized config via 'configure'"
+        elif $OC_BIN setup --non-interactive 2>/dev/null; then
+            echo "Successfully initialized config via 'setup'"
+        elif $OC_BIN init --non-interactive 2>/dev/null; then
+            echo "Successfully initialized config via 'init'"
+        else
+            echo "Warning: All initialization commands failed. Creating skeleton configuration..."
+            echo '{"agents":{"list":[]}}' > "$OPENCLAW_CONFIG_PATH"
+        fi
     else
         echo "Warning: openclaw binary not found. Creating skeleton configuration..."
         echo '{"agents":{"list":[]}}' > "$OPENCLAW_CONFIG_PATH"
