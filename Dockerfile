@@ -12,12 +12,15 @@ COPY scripts ./scripts
 RUN pnpm config set supportedArchitectures --json '{"os": ["linux"], "cpu": ["x64", "arm64"]}'
 # better-sqlite3 requires native compilation tools
 RUN apt-get update && apt-get install -y python3 make g++ git ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --no-frozen-lockfile && pnpm add openclaw@latest
 
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
+# Verify build output exists before moving to runtime
+RUN test -d .next/standalone || (echo "ERROR: .next/standalone not found" && exit 1)
+RUN test -d node_modules/openclaw || (echo "ERROR: node_modules/openclaw not found" && exit 1)
 
 FROM node:24-bullseye-slim AS runtime
 
