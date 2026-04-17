@@ -63,3 +63,57 @@ export async function callOpenClawGateway<T = unknown>(
 
   return payload as T
 }
+
+export interface GatewayConnection {
+  host: string
+  port: number
+  token: string
+}
+
+/**
+ * Performs a direct HTTP RPC call to an OpenClaw gateway using its credentials.
+ * This is useful for communicating with remote gateways added via the dashboard.
+ */
+export async function callGatewayRpc<T = unknown>(
+  gateway: GatewayConnection,
+  method: string,
+  params: unknown = {},
+  timeoutMs = 10000
+): Promise<T> {
+  const { host, port, token } = gateway
+  
+  // Build clean URL
+  let baseUrl = host.trim()
+  if (!baseUrl.startsWith('http')) {
+    baseUrl = `http://${baseUrl}:${port}`
+  }
+  
+  const url = new URL(baseUrl)
+  url.pathname = '/api/rpc'
+  
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        method,
+        params,
+      }),
+      signal: controller.signal
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Gateway RPC ${method} failed with HTTP ${response.status}`)
+    }
+    
+    return await response.json() as T
+  } finally {
+    clearTimeout(timeout)
+  }
+}

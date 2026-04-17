@@ -5,19 +5,75 @@ import { scanCodexSessions } from '@/lib/codex-sessions'
 import { scanHermesSessions } from '@/lib/hermes-sessions'
 import { getDatabase, db_helpers } from '@/lib/db'
 import { requireRole } from '@/lib/auth'
-import { callOpenClawGateway } from '@/lib/openclaw-gateway'
+import { callOpenClawGateway, callGatewayRpc } from '@/lib/openclaw-gateway'
 import { mutationLimiter } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
+import { config } from '@/lib/config'
 
 const LOCAL_SESSION_ACTIVE_WINDOW_MS = 90 * 60 * 1000
+
+interface GatewayEntry {
+  id: number
+  name: string
+  host: string
+  port: number
+  token: string
+  is_primary: number
+}
+
+async function getAllGateways(): Promise<GatewayEntry[]> {
+  try {
+    const db = getDatabase()
+    return db.prepare("SELECT * FROM gateways").all() as GatewayEntry[]
+  } catch {
+    return []
+  }
+}
 
 export async function GET(request: NextRequest) {
   const auth = requireRole(request, 'viewer')
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   try {
-    const gatewaySessions = getAllGatewaySessions()
-    const mappedGatewaySessions = mapGatewaySessions(gatewaySessions)
+    const gateways = await getAllGateways()
+    const allGatewaySessions: any[] = []
+
+    await Promise.all(gateways.map(async (gw) => {
+      try {
+        let sessions: any[] = []
+        
+        // Use local disk read for the primary if it's 127.0.0.1 or matches config
+        const isLocal = gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === config.gatewayHost
+        
+        if (isLocal) {
+          sessions = getAllGatewaySessions()
+        } else {
+          // Attempt RPC for remote gateways
+          try {
+            const data = await callGatewayRpc<{ sessions?: any[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'session.list',
+              {},
+              5000
+            )
+            sessions = data?.sessions || []
+          } catch (err) {
+            // Try legacy session_list if session.list fails
+            const data = await callGatewayRpc<{ sessions?: any[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'session_list',
+              {},
+              5000
+            )
+            sessions = data?.sessions || []
+          }
+        }
+
+        allGatewaySessions.push(...mapGatewaySessions(sessions, gw.name))
+      } catch (err) {
+        logger.warn({ err, gateway: gw.name }, 'Failed to fetch sessions from gateway')
+      }
+    }))
 
     // Always include local sessions alongside gateway sessions
     await syncClaudeSessions()
@@ -26,11 +82,7 @@ export async function GET(request: NextRequest) {
     const hermesSessions = getLocalHermesSessions()
     const localMerged = mergeLocalSessions(claudeSessions, codexSessions, hermesSessions)
 
-    if (mappedGatewaySessions.length === 0 && localMerged.length === 0) {
-      return NextResponse.json({ sessions: [] })
-    }
-
-    const merged = dedupeAndSortSessions([...mappedGatewaySessions, ...localMerged])
+    const merged = dedupeAndSortSessions([...allGatewaySessions, ...localMerged])
     return NextResponse.json({ sessions: merged })
   } catch (error) {
     logger.error({ err: error }, 'Sessions API error')
@@ -54,7 +106,7 @@ export async function POST(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
     const body = await request.json()
-    const { sessionKey } = body
+    const { sessionKey, gateway_name } = body
 
     if (!sessionKey || !SESSION_KEY_RE.test(sessionKey)) {
       return NextResponse.json({ error: 'Invalid session key' }, { status: 400 })
@@ -109,7 +161,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid action. Must be: set-thinking, set-verbose, set-reasoning, set-label' }, { status: 400 })
     }
 
-    const result = await callOpenClawGateway(rpcMethod, rpcParams, 10_000)
+    const gateways = await getAllGateways()
+    const targetGw = gateway_name 
+      ? gateways.find(g => g.name === gateway_name)
+      : gateways.find(g => g.is_primary === 1) || gateways[0]
+
+    const result = targetGw 
+      ? await callGatewayRpc({ host: targetGw.host, port: targetGw.port, token: targetGw.token }, rpcMethod, rpcParams, 10_000)
+      : await callOpenClawGateway(rpcMethod, rpcParams, 10_000)
 
     db_helpers.logActivity(
       'session_control',
@@ -117,7 +176,7 @@ export async function POST(request: NextRequest) {
       0,
       auth.user.username,
       logDetail,
-      { session_key: sessionKey, action }
+      { session_key: sessionKey, action, gateway: targetGw?.name }
     )
 
     return NextResponse.json({ success: true, action, sessionKey, result })
@@ -136,13 +195,20 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { sessionKey } = body
+    const { sessionKey, gateway_name } = body
 
     if (!sessionKey || !SESSION_KEY_RE.test(sessionKey)) {
       return NextResponse.json({ error: 'Invalid session key' }, { status: 400 })
     }
 
-    const result = await callOpenClawGateway('session_delete', { sessionKey }, 10_000)
+    const gateways = await getAllGateways()
+    const targetGw = gateway_name 
+      ? gateways.find(g => g.name === gateway_name)
+      : gateways.find(g => g.is_primary === 1) || gateways[0]
+
+    const result = targetGw 
+      ? await callGatewayRpc({ host: targetGw.host, port: targetGw.port, token: targetGw.token }, 'session_delete', { sessionKey }, 10_000)
+      : await callOpenClawGateway('session_delete', { sessionKey }, 10_000)
 
     db_helpers.logActivity(
       'session_control',
@@ -150,7 +216,7 @@ export async function DELETE(request: NextRequest) {
       0,
       auth.user.username,
       `Deleted session ${sessionKey}`,
-      { session_key: sessionKey, action: 'delete' }
+      { session_key: sessionKey, action: 'delete', gateway: targetGw?.name }
     )
 
     return NextResponse.json({ success: true, sessionKey, result })
@@ -160,11 +226,8 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-function mapGatewaySessions(gatewaySessions: ReturnType<typeof getAllGatewaySessions>) {
-  // Deduplicate by sessionId — OpenClaw tracks cron runs under the same
-  // session ID as the parent session, causing duplicate React keys (#80).
-  // Keep the most recently updated entry when duplicates exist.
-  const sessionMap = new Map<string, (typeof gatewaySessions)[0]>()
+function mapGatewaySessions(gatewaySessions: any[], gatewayName: string) {
+  const sessionMap = new Map<string, any>()
   for (const s of gatewaySessions) {
     const id = s.sessionId || `${s.agent}:${s.key}`
     const existing = sessionMap.get(id)
@@ -191,6 +254,7 @@ function mapGatewaySessions(gatewaySessions: ReturnType<typeof getAllGatewaySess
       startTime: s.updatedAt,
       lastActivity: s.updatedAt,
       source: 'gateway' as const,
+      gateway_name: gatewayName
     }
   })
 }
@@ -206,8 +270,6 @@ function getLocalClaudeSessions() {
     return rows.map((s) => {
       const total = (s.input_tokens || 0) + (s.output_tokens || 0)
       const lastMsg = s.last_message_at ? new Date(s.last_message_at).getTime() : 0
-      // Trust scanner state first, but fall back to derived recency so UI doesn't
-      // show stale "xh ago" when the active flag lags behind disk updates.
       const derivedActive = lastMsg > 0 && (Date.now() - lastMsg) < LOCAL_SESSION_ACTIVE_WINDOW_MS
       const isActive = s.is_active === 1 || derivedActive
       const effectiveLastActivity = isActive ? Date.now() : lastMsg

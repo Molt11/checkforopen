@@ -5,6 +5,8 @@ import { config } from '@/lib/config'
 import { requireRole } from '@/lib/auth'
 import { readLimiter, mutationLimiter } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
+import { getDatabase } from '@/lib/db'
+import { callGatewayRpc } from '@/lib/openclaw-gateway'
 
 const LOGS_PATH = config.logsDir
 
@@ -16,6 +18,25 @@ interface LogEntry {
   session?: string
   message: string
   data?: any
+  gateway_name?: string
+}
+
+interface GatewayEntry {
+  id: number
+  name: string
+  host: string
+  port: number
+  token: string
+  is_primary: number
+}
+
+async function getAllGateways(): Promise<GatewayEntry[]> {
+  try {
+    const db = getDatabase()
+    return db.prepare("SELECT * FROM gateways").all() as GatewayEntry[]
+  } catch {
+    return []
+  }
 }
 
 /**
@@ -200,8 +221,31 @@ export async function GET(request: NextRequest) {
       for (const file of logFiles) {
         if (source && file.source !== source) continue
         const entries = await readLogFile(file.path, file.source, 200)
-        logs.push(...entries)
+        logs.push(...entries.map(e => ({ ...e, gateway_name: 'local' })))
       }
+
+      // Discover logs from other gateways
+      const gateways = await getAllGateways()
+      await Promise.all(gateways.map(async (gw) => {
+        if (gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === config.gatewayHost) return
+
+        try {
+          const data = await callGatewayRpc<{ logs?: any[] }>(
+            { host: gw.host, port: gw.port, token: gw.token },
+            'log.list',
+            { limit: 200, source, level, session, search },
+            5000
+          )
+          const remoteLogs = (data?.logs || []).map((l: any) => ({
+            ...l,
+            id: `remote-${gw.id}-${l.id || Math.random()}`,
+            gateway_name: gw.name
+          }))
+          logs.push(...remoteLogs)
+        } catch (err) {
+          logger.warn({ err, gateway: gw.name }, 'Failed to fetch logs from remote gateway')
+        }
+      }))
 
       // Sort newest first
       logs.sort((a, b) => b.timestamp - a.timestamp)
@@ -227,8 +271,27 @@ export async function GET(request: NextRequest) {
 
     if (action === 'sources') {
       const logFiles = await discoverLogFiles()
-      const sources = logFiles.map(f => f.source)
-      return NextResponse.json({ sources })
+      const localSources = logFiles.map(f => f.source)
+      
+      const gateways = await getAllGateways()
+      const allSources = new Set(localSources)
+
+      await Promise.all(gateways.map(async (gw) => {
+        if (gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === config.gatewayHost) return
+        try {
+          const data = await callGatewayRpc<{ sources?: string[] }>(
+            { host: gw.host, port: gw.port, token: gw.token },
+            'log.sources',
+            {},
+            3000
+          )
+          if (data?.sources) {
+            data.sources.forEach(s => allSources.add(`${gw.name}/${s}`))
+          }
+        } catch {}
+      }))
+
+      return NextResponse.json({ sources: Array.from(allSources) })
     }
 
     if (action === 'tail') {
@@ -239,8 +302,28 @@ export async function GET(request: NextRequest) {
       for (const file of logFiles) {
         if (source && file.source !== source) continue
         const entries = await readLogFile(file.path, file.source, 50)
-        logs.push(...entries.filter(e => e.timestamp > sinceTimestamp))
+        logs.push(...entries.filter(e => e.timestamp > sinceTimestamp).map(e => ({ ...e, gateway_name: 'local' })))
       }
+
+      // Tail from remote gateways
+      const gateways = await getAllGateways()
+      await Promise.all(gateways.map(async (gw) => {
+        if (gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === config.gatewayHost) return
+        try {
+          const data = await callGatewayRpc<{ logs?: any[] }>(
+            { host: gw.host, port: gw.port, token: gw.token },
+            'log.tail',
+            { since: sinceTimestamp, source, limit: 50 },
+            3000
+          )
+          const remoteLogs = (data?.logs || []).map((l: any) => ({
+            ...l,
+            id: `remote-${gw.id}-${l.id || Math.random()}`,
+            gateway_name: gw.name
+          }))
+          logs.push(...remoteLogs)
+        } catch {}
+      }))
 
       logs.sort((a, b) => b.timestamp - a.timestamp)
       logs = logs.slice(0, limit)

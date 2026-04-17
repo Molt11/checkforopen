@@ -12,6 +12,25 @@ import { runOpenClaw } from '@/lib/command';
 import { config as appConfig } from '@/lib/config';
 import { resolveWithin } from '@/lib/paths';
 import path from 'node:path';
+import { callGatewayRpc } from '@/lib/openclaw-gateway';
+
+interface GatewayEntry {
+  id: number
+  name: string
+  host: string
+  port: number
+  token: string
+  is_primary: number
+}
+
+async function getAllGateways(): Promise<GatewayEntry[]> {
+  try {
+    const db = getDatabase()
+    return db.prepare("SELECT * FROM gateways").all() as GatewayEntry[]
+  } catch {
+    return []
+  }
+}
 
 /**
  * GET /api/agents - List all agents with optional filtering
@@ -50,16 +69,49 @@ export async function GET(request: NextRequest) {
     params.push(limit, offset);
     
     const stmt = db.prepare(query);
-    const agents = stmt.all(...params) as Agent[];
+    const localAgents = stmt.all(...params) as Agent[];
     
     // Parse JSON config field
-    const agentsWithParsedData = agents.map(agent => ({
+    const agentsWithParsedData = localAgents.map(agent => ({
       ...agent,
-      config: enrichAgentConfigFromWorkspace(agent.config ? JSON.parse(agent.config) : {})
+      config: enrichAgentConfigFromWorkspace(agent.config ? JSON.parse(agent.config) : {}),
+      gateway_name: 'local'
     }));
+
+    // Discover agents from other gateways
+    const gateways = await getAllGateways()
+    const allAgents: any[] = [...agentsWithParsedData]
+
+    await Promise.all(gateways.map(async (gw) => {
+      // Skip local if already covered by DB agents
+      if (gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === appConfig.gatewayHost) return
+
+      try {
+        const data = await callGatewayRpc<{ agents?: any[] }>(
+          { host: gw.host, port: gw.port, token: gw.token },
+          'agent.list',
+          {},
+          5000
+        )
+        const remoteAgents = (data?.agents || []).map(ra => ({
+          id: `remote-${gw.id}-${ra.id}`,
+          name: ra.name || ra.id,
+          role: ra.role || ra.type || 'agent',
+          status: ra.status || 'unknown',
+          gateway_name: gw.name,
+          config: ra,
+          created_at: Math.floor(Date.now() / 1000),
+          updated_at: Math.floor(Date.now() / 1000),
+          taskStats: { total: 0, assigned: 0, in_progress: 0, quality_review: 0, done: 0, completed: 0 }
+        }))
+        allAgents.push(...remoteAgents)
+      } catch (err) {
+        logger.warn({ err, gateway: gw.name }, 'Failed to fetch agents from remote gateway')
+      }
+    }))
     
     // Get task counts for all listed agents in one query (avoids N+1 queries)
-    const agentNames = agentsWithParsedData.map(agent => agent.name).filter(Boolean)
+    const agentNames = allAgents.map(agent => agent.name).filter(Boolean)
     const taskStatsByAgent = new Map<string, { total: number; assigned: number; in_progress: number; quality_review: number; done: number }>()
 
     if (agentNames.length > 0) {
@@ -95,14 +147,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const agentsWithStats = agentsWithParsedData.map(agent => {
-      const taskStats = taskStatsByAgent.get(agent.name) || {
+    const agentsWithStats = allAgents.map(agent => {
+      const taskStats = taskStatsByAgent.get(agent.name) || (agent.taskStats || {
         total: 0,
         assigned: 0,
         in_progress: 0,
         quality_review: 0,
         done: 0,
-      }
+      })
 
       return {
         ...agent,
@@ -114,17 +166,7 @@ export async function GET(request: NextRequest) {
     });
     
     // Get total count for pagination
-    let countQuery = 'SELECT COUNT(*) as total FROM agents WHERE workspace_id = ?';
-    const countParams: any[] = [workspaceId];
-    if (status) {
-      countQuery += ' AND status = ?';
-      countParams.push(status);
-    }
-    if (role) {
-      countQuery += ' AND role = ?';
-      countParams.push(role);
-    }
-    const countRow = db.prepare(countQuery).get(...countParams) as { total: number };
+    let countRow = { total: agentsWithStats.length };
 
     return NextResponse.json({
       agents: agentsWithStats,

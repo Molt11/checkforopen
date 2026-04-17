@@ -1,25 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
-import { config } from '@/lib/config'
 import { logger } from '@/lib/logger'
-import { callOpenClawGateway } from '@/lib/openclaw-gateway'
+import { getDatabase } from '@/lib/db'
+import { callGatewayRpc } from '@/lib/openclaw-gateway'
 
 const GATEWAY_TIMEOUT = 5000
 
-/** Probe the gateway HTTP /health endpoint to check reachability. */
-async function isGatewayReachable(): Promise<boolean> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT)
+interface GatewayEntry {
+  id: number
+  name: string
+  host: string
+  port: number
+  token: string
+  status: string
+}
+
+async function getAllGateways(): Promise<GatewayEntry[]> {
   try {
-    const res = await fetch(
-      `http://${config.gatewayHost}:${config.gatewayPort}/health`,
-      { signal: controller.signal },
-    )
-    return res.ok
-  } catch {
-    return false
-  } finally {
-    clearTimeout(timeout)
+    const db = getDatabase()
+    return db.prepare("SELECT * FROM gateways").all() as GatewayEntry[]
+  } catch (err) {
+    logger.error({ err }, 'Failed to fetch gateways from database')
+    return []
   }
 }
 
@@ -28,51 +30,56 @@ export async function GET(request: NextRequest) {
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const action = request.nextUrl.searchParams.get('action') || 'list'
+  const gateways = await getAllGateways()
 
   if (action === 'list') {
-    try {
-      const connected = await isGatewayReachable()
-      if (!connected) {
-        return NextResponse.json({ nodes: [], connected: false })
-      }
+    const allNodes: any[] = []
+    let anyConnected = false
 
-      try {
-        const data = await callOpenClawGateway<{ nodes?: unknown[] }>('node.list', {}, GATEWAY_TIMEOUT)
-        return NextResponse.json({ nodes: data?.nodes ?? [], connected: true })
-      } catch (rpcErr) {
-        // Gateway is reachable but openclaw CLI unavailable (e.g. Docker) or
-        // node.list not supported — return connected=true with empty node list
-        logger.warn({ err: rpcErr }, 'node.list RPC failed, returning empty node list')
-        return NextResponse.json({ nodes: [], connected: true })
-      }
-    } catch (err) {
-      logger.warn({ err }, 'Gateway unreachable for node listing')
-      return NextResponse.json({ nodes: [], connected: false })
-    }
+    await Promise.all(
+      gateways.map(async (gw) => {
+        try {
+          const data = await callGatewayRpc<{ nodes?: any[] }>(
+            { host: gw.host, port: gw.port, token: gw.token },
+            'node.list',
+            {},
+            GATEWAY_TIMEOUT
+          )
+          if (data?.nodes) {
+            allNodes.push(...data.nodes.map(n => ({ ...n, gateway_name: gw.name })))
+          }
+          anyConnected = true
+        } catch (err) {
+          logger.warn({ err, gateway: gw.name }, 'Failed to fetch nodes from gateway')
+        }
+      })
+    )
+
+    return NextResponse.json({ nodes: allNodes, connected: anyConnected })
   }
 
   if (action === 'devices') {
-    try {
-      const connected = await isGatewayReachable()
-      if (!connected) {
-        return NextResponse.json({ devices: [] })
-      }
+    const allDevices: any[] = []
 
-      try {
-        const data = await callOpenClawGateway<{ devices?: unknown[] }>(
-          'device.pair.list',
-          {},
-          GATEWAY_TIMEOUT,
-        )
-        return NextResponse.json({ devices: data?.devices ?? [] })
-      } catch (rpcErr) {
-        logger.warn({ err: rpcErr }, 'device.pair.list RPC failed, returning empty device list')
-        return NextResponse.json({ devices: [] })
-      }
-    } catch (err) {
-      logger.warn({ err }, 'Gateway unreachable for device listing')
-      return NextResponse.json({ devices: [] })
-    }
+    await Promise.all(
+      gateways.map(async (gw) => {
+        try {
+          const data = await callGatewayRpc<{ devices?: any[] }>(
+            { host: gw.host, port: gw.port, token: gw.token },
+            'device.pair.list',
+            {},
+            GATEWAY_TIMEOUT
+          )
+          if (data?.devices) {
+            allDevices.push(...data.devices.map(d => ({ ...d, gateway_name: gw.name })))
+          }
+        } catch (err) {
+          logger.warn({ err, gateway: gw.name }, 'Failed to fetch devices from gateway')
+        }
+      })
+    )
+
+    return NextResponse.json({ devices: allDevices })
   }
 
   return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
@@ -81,7 +88,6 @@ export async function GET(request: NextRequest) {
 const VALID_DEVICE_ACTIONS = ['approve', 'reject', 'rotate-token', 'revoke-token'] as const
 type DeviceAction = (typeof VALID_DEVICE_ACTIONS)[number]
 
-/** Map UI action names to gateway RPC method names and their required param keys. */
 const ACTION_RPC_MAP: Record<DeviceAction, { method: string; paramKey: 'requestId' | 'deviceId' }> = {
   'approve':      { method: 'device.pair.approve', paramKey: 'requestId' },
   'reject':       { method: 'device.pair.reject',  paramKey: 'requestId' },
@@ -89,15 +95,11 @@ const ACTION_RPC_MAP: Record<DeviceAction, { method: string; paramKey: 'requestI
   'revoke-token': { method: 'device.token.revoke',  paramKey: 'deviceId' },
 }
 
-/**
- * POST /api/nodes - Device management actions
- * Body: { action: DeviceAction, requestId?: string, deviceId?: string, role?: string, scopes?: string[] }
- */
 export async function POST(request: NextRequest) {
   const auth = requireRole(request, 'operator')
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-  let body: Record<string, unknown>
+  let body: Record<string, any>
   try {
     body = await request.json()
   } catch {
@@ -105,6 +107,8 @@ export async function POST(request: NextRequest) {
   }
 
   const action = body.action as string
+  const gatewayName = body.gateway_name as string
+
   if (!action || !VALID_DEVICE_ACTIONS.includes(action as DeviceAction)) {
     return NextResponse.json(
       { error: `Invalid action. Must be one of: ${VALID_DEVICE_ACTIONS.join(', ')}` },
@@ -112,16 +116,22 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const spec = ACTION_RPC_MAP[action as DeviceAction]
+  const gateways = await getAllGateways()
+  const targetGw = gatewayName 
+    ? gateways.find(g => g.name === gatewayName)
+    : gateways.find(g => g.is_primary === 1) || gateways[0]
 
-  // Validate required param
+  if (!targetGw) {
+    return NextResponse.json({ error: 'Target gateway not found' }, { status: 404 })
+  }
+
+  const spec = ACTION_RPC_MAP[action as DeviceAction]
   const id = body[spec.paramKey] as string | undefined
   if (!id || typeof id !== 'string') {
     return NextResponse.json({ error: `Missing required field: ${spec.paramKey}` }, { status: 400 })
   }
 
-  // Build RPC params
-  const params: Record<string, unknown> = { [spec.paramKey]: id }
+  const params: Record<string, any> = { [spec.paramKey]: id }
   if ((action === 'rotate-token' || action === 'revoke-token') && body.role) {
     params.role = body.role
   }
@@ -130,10 +140,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await callOpenClawGateway(spec.method, params, GATEWAY_TIMEOUT)
+    const result = await callGatewayRpc(
+      { host: targetGw.host, port: targetGw.port, token: targetGw.token },
+      spec.method,
+      params,
+      GATEWAY_TIMEOUT
+    )
     return NextResponse.json(result)
-  } catch (err: unknown) {
-    logger.error({ err }, 'Gateway device action failed')
+  } catch (err: any) {
+    logger.error({ err, gateway: targetGw.name }, 'Gateway device action failed')
     return NextResponse.json({ error: 'Gateway device action failed' }, { status: 502 })
   }
 }
