@@ -21,8 +21,13 @@ RUN pnpm build
 
 FROM node:24-slim AS runtime
 
-# Install procps for ps and uptime commands used by diagnostics/scheduler
-RUN apt-get update && apt-get install -y procps --no-install-recommends && rm -rf /var/lib/apt/lists/*
+# Install procps, git (required for openclaw install), and ca-certificates
+RUN apt-get update && apt-get install -y \
+    procps \
+    git \
+    ca-certificates \
+    --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
 
 ARG MC_VERSION=dev
 LABEL org.opencontainers.image.source="https://github.com/builderz-labs/mission-control"
