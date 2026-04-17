@@ -11,6 +11,7 @@
     "deploy:standalone": "pnpm run verify:node && bash scripts/deploy-standalone.sh",
     "lint": "pnpm run verify:node && eslint .",
     "typecheck": "pnpm run verify:node && tsc --noEmit",
+    "migrate": "pnpm run verify:node && node -e \"require('./src/lib/db').getDatabase()\"",
     "test": "pnpm run verify:node && vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
