@@ -69,4 +69,4 @@ ENV NEXT_IMAGE_OPTIMIZATION_CACHE=0
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
 # Entrypoint script starts both gateway and server
-ENTRYPOINT ["/bin/sh", "/app/scripts/prod-entrypoint.sh"]
+ENTRYPOINT ["/app/scripts/prod-entrypoint.sh"]

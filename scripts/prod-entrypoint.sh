@@ -90,6 +90,12 @@ else
     fi
 fi
 
-echo "Starting Mission Control Server..."
+echo "[entrypoint] Starting Mission Control Server on PORT=${PORT:-3000}..."
 # Start the Next.js standalone server
-exec node server.js
+if [ -f "server.js" ]; then
+    exec node server.js
+else
+    echo "[entrypoint] ERROR: server.js not found in $(pwd)"
+    ls -la
+    exit 1
+fi
