@@ -42,17 +42,17 @@ LABEL org.opencontainers.image.description="Mission Control - operations dashboa
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.version="${MC_VERSION}"
 
+# Setup production environment
 WORKDIR /app
 ENV NODE_ENV=production
-
-# Install openclaw globally in runtime for better path resolution
-RUN npm install -g openclaw@latest
+ENV PATH=/app/node_modules/.bin:$PATH
 
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 # Ensure openclaw is present in the runtime node_modules (standalone might have pruned it)
 COPY --from=build --chown=nextjs:nodejs /app/node_modules/openclaw ./node_modules/openclaw
+COPY --from=build --chown=nextjs:nodejs /app/node_modules/.bin ./node_modules/.bin
 # The standalone output has its own node_modules, but we want to ensure openclaw is accessible
 # if the app tries to resolve it from the root /app/node_modules
 COPY --from=build --chown=nextjs:nodejs /app/public ./public
@@ -73,7 +73,7 @@ ENV PORT=3000
 EXPOSE 3000
 ENV HOSTNAME=0.0.0.0
 ENV MISSION_CONTROL_REPO_ROOT=/app
-ENV OPENCLAW_BIN=openclaw
+ENV OPENCLAW_BIN=/app/node_modules/.bin/openclaw
 ENV NEXT_IMAGE_OPTIMIZATION_CACHE=0
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD ["node", "/app/healthcheck.js"]
