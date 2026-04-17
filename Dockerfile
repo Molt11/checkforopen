@@ -44,13 +44,12 @@ COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy schema.sql needed by migration 001_init at runtime
 COPY --from=build --chown=nextjs:nodejs /app/src/lib/schema.sql ./src/lib/schema.sql
 COPY --from=build --chown=nextjs:nodejs /app/scripts ./scripts
+RUN chmod +x /app/scripts/prod-entrypoint.sh
 # Create data directory with correct ownership for SQLite
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 # Create cache directory with correct ownership for Next.js ISR
 RUN mkdir -p /app/.next/cache && chown nextjs:nodejs /app/.next/cache
 RUN echo 'const http=require("http");const r=http.get("http://localhost:"+(process.env.PORT||3000)+"/api/status?action=health",s=>{process.exit(s.statusCode===200?0:1)});r.on("error",()=>process.exit(1));r.setTimeout(4000,()=>{r.destroy();process.exit(1)})' > /app/healthcheck.js
-COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
 USER nextjs
 ENV PORT=3000
 EXPOSE 3000
@@ -61,4 +60,4 @@ ENV NEXT_IMAGE_OPTIMIZATION_CACHE=0
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
 # Entrypoint script starts both gateway and server
-CMD ["./scripts/prod-entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/app/scripts/prod-entrypoint.sh"]
