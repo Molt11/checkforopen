@@ -38,10 +38,9 @@ RUN npm install -g openclaw@latest
 
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
-# Ensure local node_modules exists and contains openclaw for code that expects it there
-COPY --from=build --chown=nextjs:nodejs /app/node_modules ./node_modules
-
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+# Ensure openclaw is present in the runtime node_modules (standalone might have pruned it)
+COPY --from=build --chown=nextjs:nodejs /app/node_modules/openclaw ./node_modules/openclaw
 # The standalone output has its own node_modules, but we want to ensure openclaw is accessible
 # if the app tries to resolve it from the root /app/node_modules
 COPY --from=build --chown=nextjs:nodejs /app/public ./public
