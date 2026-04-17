@@ -117,6 +117,23 @@ CREATE TABLE IF NOT EXISTS email_tracking (
     followup_status TEXT DEFAULT 'none' -- none, pending, sent, cancelled
 );
 
+-- Gateways Table - Remote gateway orchestration
+CREATE TABLE IF NOT EXISTS gateways (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    host TEXT NOT NULL DEFAULT '127.0.0.1',
+    port INTEGER NOT NULL DEFAULT 18789,
+    token TEXT NOT NULL DEFAULT '',
+    is_primary INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'unknown',
+    last_seen INTEGER,
+    latency INTEGER,
+    sessions_count INTEGER NOT NULL DEFAULT 0,
+    agents_count INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
 -- Gateway health logs (captured each time MC probes a gateway)
 CREATE TABLE IF NOT EXISTS gateway_health_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1285,6 +1285,28 @@ const migrations: Migration[] = [
       db.exec(`CREATE INDEX IF NOT EXISTS idx_gateway_health_logs_gateway_id ON gateway_health_logs(gateway_id)`)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_gateway_health_logs_probed_at ON gateway_health_logs(probed_at)`)
     }
+  },
+  {
+    id: '043_gateways',
+    up(db: Database.Database) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS gateways (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          host TEXT NOT NULL DEFAULT '127.0.0.1',
+          port INTEGER NOT NULL DEFAULT 18789,
+          token TEXT NOT NULL DEFAULT '',
+          is_primary INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'unknown',
+          last_seen INTEGER,
+          latency INTEGER,
+          sessions_count INTEGER NOT NULL DEFAULT 0,
+          agents_count INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+          updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+        )
+      `)
+    }
   }
 ]
 
