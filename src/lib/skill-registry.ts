@@ -127,6 +127,24 @@ const SECURITY_RULES: Array<{
     severity: 'info',
     description: 'Skill references external network URLs — verify they are trusted',
   },
+  {
+    rule: 'path-traversal',
+    pattern: /(?:\.\.\/){2,}|(?:\.\.\\){2,}|(?:%2e%2e%2f){2,}/i,
+    severity: 'critical',
+    description: 'Potential path traversal attack: attempts to access parent directories',
+  },
+  {
+    rule: 'ssrf-internal-network',
+    pattern: /\b(?:fetch|curl|wget|axios(?:\.[a-z]+)?|http(?:s?)\.\w+|request(?:\.\w+)?)\s*\(\s*['"`]https?:\/\/(?:localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|10\.\d+\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|169\.254\.\d+\.\d+|[^'"` ]*\.internal(?:\/|['"`]))/i,
+    severity: 'critical',
+    description: 'Potential SSRF: skill attempts to contact localhost or internal/private network addresses',
+  },
+  {
+    rule: 'ssrf-metadata-endpoint',
+    pattern: /(?:169\.254\.169\.254|metadata\.google\.internal|fd00:ec2::254|instance-data)/i,
+    severity: 'critical',
+    description: 'Potential SSRF targeting cloud metadata endpoint (AWS/GCP/Azure)',
+  },
 ]
 
 /**
@@ -257,56 +275,89 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise
 }
 
 async function searchClawdHub(query: string): Promise<RegistrySearchResult> {
-  try {
-    const url = `${CLAWHUB_API}/skills/search?q=${encodeURIComponent(query)}`
-    const res = await fetchWithTimeout(url)
-    if (!res.ok) {
-      logger.warn({ status: res.status }, 'ClawdHub search failed')
-      return { skills: [], total: 0, source: 'clawhub' }
+  // ClawdHub current API: /api/search?q=... (legacy /skills/search now 404s)
+  const urls = [
+    `${CLAWHUB_API}/search?q=${encodeURIComponent(query)}`,
+    `${CLAWHUB_API}/search?query=${encodeURIComponent(query)}`,
+    `${CLAWHUB_API}/skills/search?q=${encodeURIComponent(query)}`,
+  ]
+
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(url)
+      if (!res.ok) {
+        logger.warn({ status: res.status, url }, 'ClawdHub search request failed')
+        continue
+      }
+
+      const data = await res.json() as any
+      const rows = data?.results || data?.skills || []
+      const skills: RegistrySkill[] = rows.map((s: any) => ({
+        slug: s.slug || s.id || s.name,
+        name: s.displayName || s.name || s.slug,
+        description: s.summary || s.description || '',
+        author: s.author || s.owner || 'unknown',
+        version: s.version || s.latest_version || 'latest',
+        source: 'clawhub' as const,
+        installCount: s.installs || s.install_count,
+        tags: s.tags,
+        hash: s.hash || s.sha256,
+      }))
+
+      if (skills.length > 0) {
+        return { skills, total: data?.total || skills.length, source: 'clawhub' }
+      }
+    } catch (err: any) {
+      logger.warn({ err: err.message, url }, 'ClawdHub search error')
     }
-    const data = await res.json() as any
-    const skills: RegistrySkill[] = (data?.results || data?.skills || []).map((s: any) => ({
-      slug: s.slug || s.id || s.name,
-      name: s.name || s.slug,
-      description: s.description || '',
-      author: s.author || s.owner || 'unknown',
-      version: s.version || s.latest_version || '0.0.0',
-      source: 'clawhub' as const,
-      installCount: s.installs || s.install_count,
-      tags: s.tags,
-      hash: s.hash || s.sha256,
-    }))
-    return { skills, total: data?.total || skills.length, source: 'clawhub' }
-  } catch (err: any) {
-    logger.warn({ err: err.message }, 'ClawdHub search error')
-    return { skills: [], total: 0, source: 'clawhub' }
   }
+
+  return { skills: [], total: 0, source: 'clawhub' }
 }
 
 async function searchSkillsSh(query: string): Promise<RegistrySearchResult> {
-  try {
-    const url = `${SKILLS_SH_API}/skills?q=${encodeURIComponent(query)}`
-    const res = await fetchWithTimeout(url)
-    if (!res.ok) {
-      logger.warn({ status: res.status }, 'skills.sh search failed')
-      return { skills: [], total: 0, source: 'skills-sh' }
+  // skills.sh current API: /api/search?q=... (legacy /skills endpoint now 404s)
+  const urls = [
+    `${SKILLS_SH_API}/search?q=${encodeURIComponent(query)}`,
+    `${SKILLS_SH_API}/search?query=${encodeURIComponent(query)}`,
+    `${SKILLS_SH_API}/skills?q=${encodeURIComponent(query)}`,
+  ]
+
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(url)
+      if (!res.ok) {
+        logger.warn({ status: res.status, url }, 'skills.sh search request failed')
+        continue
+      }
+
+      const data = await res.json() as any
+      const rows = data?.skills || data?.results || []
+      const skills: RegistrySkill[] = rows.map((s: any) => {
+        const source = typeof s.source === 'string' ? s.source : 'unknown'
+        const slug = s.slug || s.id || (source && s.skillId ? `${source}/${s.skillId}` : s.name)
+        return {
+          slug,
+          name: s.name || s.skillId || s.slug || 'unnamed-skill',
+          description: s.description || s.summary || '',
+          author: s.owner || s.author || (source.includes('/') ? source.split('/')[0] : source),
+          version: s.version || 'latest',
+          source: 'skills-sh' as const,
+          installCount: s.installs || s.install_count,
+          tags: s.tags,
+          url: s.url,
+        }
+      })
+
+      if (skills.length > 0) {
+        return { skills, total: data?.total || data?.count || skills.length, source: 'skills-sh' }
+      }
+    } catch (err: any) {
+      logger.warn({ err: err.message, url }, 'skills.sh search error')
     }
-    const data = await res.json() as any
-    const skills: RegistrySkill[] = (data?.skills || data?.results || []).map((s: any) => ({
-      slug: s.slug || `${s.owner}/${s.name}` || s.id,
-      name: s.name || s.slug,
-      description: s.description || '',
-      author: s.owner || s.author || 'unknown',
-      version: s.version || 'latest',
-      source: 'skills-sh' as const,
-      installCount: s.installs || s.install_count,
-      tags: s.tags,
-    }))
-    return { skills, total: data?.total || skills.length, source: 'skills-sh' }
-  } catch (err: any) {
-    logger.warn({ err: err.message }, 'skills.sh search error')
-    return { skills: [], total: 0, source: 'skills-sh' }
   }
+
+  return { skills: [], total: 0, source: 'skills-sh' }
 }
 
 export async function searchRegistry(source: RegistrySource, query: string): Promise<RegistrySearchResult> {

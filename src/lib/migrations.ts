@@ -1247,6 +1247,7 @@ const migrations: Migration[] = [
     }
   },
   {
+<<<<<<< HEAD
     id: '041_email_tracking',
     up(db: Database.Database) {
       db.exec(`
@@ -1267,6 +1268,22 @@ const migrations: Migration[] = [
       `)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_email_tracking_status ON email_tracking(status)`)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_email_tracking_recipient ON email_tracking(recipient)`)
+=======
+    id: '041_gateway_health_logs',
+    up(db: Database.Database) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS gateway_health_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          gateway_id INTEGER NOT NULL,
+          status TEXT NOT NULL,
+          latency INTEGER,
+          probed_at INTEGER NOT NULL DEFAULT (unixepoch()),
+          error TEXT
+        )
+      `)
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_gateway_health_logs_gateway_id ON gateway_health_logs(gateway_id)`)
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_gateway_health_logs_probed_at ON gateway_health_logs(probed_at)`)
+>>>>>>> v2.0.1
     }
   }
 ]

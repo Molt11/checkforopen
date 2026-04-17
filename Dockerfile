@@ -30,7 +30,7 @@ FROM node:24-slim AS runtime
 RUN apt-get update && apt-get install -y procps --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 ARG MC_VERSION=dev
-LABEL org.opencontainers.image.source="https://github.com/openclaw/mission-control"
+LABEL org.opencontainers.image.source="https://github.com/builderz-labs/mission-control"
 LABEL org.opencontainers.image.description="Mission Control - operations dashboard"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.version="${MC_VERSION}"
@@ -49,6 +49,8 @@ RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 # Create cache directory with correct ownership for Next.js ISR
 RUN mkdir -p /app/.next/cache && chown nextjs:nodejs /app/.next/cache
 RUN echo 'const http=require("http");const r=http.get("http://localhost:"+(process.env.PORT||3000)+"/api/status?action=health",s=>{process.exit(s.statusCode===200?0:1)});r.on("error",()=>process.exit(1));r.setTimeout(4000,()=>{r.destroy();process.exit(1)})' > /app/healthcheck.js
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 USER nextjs
 ENV PORT=3000
 EXPOSE 3000
@@ -58,6 +60,5 @@ ENV OPENCLAW_BIN=/app/node_modules/.bin/openclaw
 ENV NEXT_IMAGE_OPTIMIZATION_CACHE=0
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
-
 # Entrypoint script starts both gateway and server
 CMD ["./scripts/prod-entrypoint.sh"]

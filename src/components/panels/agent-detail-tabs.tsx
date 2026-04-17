@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Loader } from '@/components/ui/loader'
 import { createClientLogger } from '@/lib/client-logger'
@@ -94,6 +95,7 @@ export function OverviewTab({
   loadingHeartbeat: boolean
   onPerformHeartbeat: () => Promise<void>
 }) {
+  const t = useTranslations('agentDetail')
   const [messageFrom, setMessageFrom] = useState('system')
   const [directMessage, setDirectMessage] = useState('')
   const [messageStatus, setMessageStatus] = useState<string | null>(null)
@@ -125,10 +127,10 @@ export function OverviewTab({
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Failed to send message')
       setDirectMessage('')
-      setMessageStatus('Sent')
+      setMessageStatus(t('messageSent'))
       setTimeout(() => setMessageStatus(null), 2000)
     } catch (error) {
-      setMessageStatus('Failed')
+      setMessageStatus(t('messageFailed'))
     }
   }
 
@@ -170,7 +172,7 @@ export function OverviewTab({
               className="px-3 py-1 text-xs rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors disabled:opacity-50 ml-auto"
               style={agent.session_key ? { marginLeft: 0 } : undefined}
             >
-              {loadingHeartbeat ? '...' : 'Heartbeat'}
+              {loadingHeartbeat ? '...' : t('heartbeat')}
             </button>
           </div>
 
@@ -179,7 +181,7 @@ export function OverviewTab({
               <span className={heartbeatData.status === 'HEARTBEAT_OK' ? 'text-green-400' : 'text-yellow-400'}>
                 {heartbeatData.status}
               </span>
-              {heartbeatData.total_items ? ` · ${heartbeatData.total_items} work items` : ''}
+              {heartbeatData.total_items ? ` · ${t('workItems', { count: heartbeatData.total_items })}` : ''}
               {heartbeatData.message && ` · ${heartbeatData.message}`}
             </div>
           )}
@@ -187,7 +189,7 @@ export function OverviewTab({
           {/* Key fields */}
           <div className="space-y-3">
             <div className="grid grid-cols-[100px_1fr] gap-2 items-center text-sm">
-              <span className="text-muted-foreground">Role</span>
+              <span className="text-muted-foreground">{t('role')}</span>
               {editing ? (
                 <input
                   type="text"
@@ -201,48 +203,48 @@ export function OverviewTab({
             </div>
 
             <div className="grid grid-cols-[100px_1fr] gap-2 items-center text-sm">
-              <span className="text-muted-foreground">Model</span>
+              <span className="text-muted-foreground">{t('model')}</span>
               {editing ? (
                 <select
                   value={formData.model || ''}
                   onChange={(e) => setFormData((prev: any) => ({ ...prev, model: e.target.value }))}
                   className="bg-surface-1 text-foreground border border-border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                 >
-                  <option value="">Default</option>
+                  <option value="">{t('default')}</option>
                   {availableModels.map((m) => (
                     <option key={m.alias} value={m.alias}>{m.alias}</option>
                   ))}
                 </select>
               ) : (
                 <span className="text-foreground font-mono text-xs">
-                  {(() => { const p = (agent as any).config?.model?.primary; const m = (agent as any).model; const v = typeof p === 'string' ? p : p?.primary; return v || (typeof m === 'string' ? m : m?.primary) || 'default' })()}
+                  {(() => { const p = (agent as any).config?.model?.primary; const m = (agent as any).model; const v = typeof p === 'string' ? p : p?.primary; return v || (typeof m === 'string' ? m : m?.primary) || t('default') })()}
                 </span>
               )}
             </div>
 
             <div className="grid grid-cols-[100px_1fr] gap-2 items-center text-sm">
-              <span className="text-muted-foreground">Session Key</span>
+              <span className="text-muted-foreground">{t('sessionKey')}</span>
               {editing ? (
                 <input
                   type="text"
                   value={formData.session_key}
                   onChange={(e) => setFormData((prev: any) => ({ ...prev, session_key: e.target.value }))}
                   className="bg-surface-1 text-foreground border border-border rounded px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
-                  placeholder="OpenClaw session ID"
+                  placeholder={t('sessionKeyPlaceholder')}
                 />
               ) : (
                 <span className="text-foreground font-mono text-xs">
-                  {agent.session_key || <span className="text-muted-foreground/50">Not set</span>}
+                  {agent.session_key || <span className="text-muted-foreground/50">{t('notSet')}</span>}
                 </span>
               )}
             </div>
 
             <div className="grid grid-cols-[100px_1fr] gap-2 items-center text-sm">
-              <span className="text-muted-foreground">Created</span>
+              <span className="text-muted-foreground">{t('created')}</span>
               <span className="text-xs text-muted-foreground">{new Date(agent.created_at * 1000).toLocaleDateString()}</span>
             </div>
             <div className="grid grid-cols-[100px_1fr] gap-2 items-center text-sm">
-              <span className="text-muted-foreground">Updated</span>
+              <span className="text-muted-foreground">{t('updated')}</span>
               <span className="text-xs text-muted-foreground">{new Date(agent.updated_at * 1000).toLocaleDateString()}</span>
             </div>
           </div>
@@ -252,19 +254,19 @@ export function OverviewTab({
             <div className="flex gap-3 pt-1">
               <div className="text-center">
                 <div className="text-lg font-semibold text-foreground">{agent.taskStats.total}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{t('statsTotal')}</div>
               </div>
               <div className="text-center">
                 <div className="text-lg font-semibold text-blue-400">{agent.taskStats.assigned}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Assigned</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{t('statsAssigned')}</div>
               </div>
               <div className="text-center">
                 <div className="text-lg font-semibold text-yellow-400">{agent.taskStats.in_progress}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Active</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{t('statsActive')}</div>
               </div>
               <div className="text-center">
                 <div className="text-lg font-semibold text-green-400">{agent.taskStats.completed}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Done</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{t('statsDone')}</div>
               </div>
             </div>
           )}
@@ -279,14 +281,14 @@ export function OverviewTab({
                       <svg className="w-3 h-3 animate-spin" viewBox="0 0 16 16" fill="none">
                         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="28" strokeDashoffset="8" />
                       </svg>
-                      Saving...
+                      {t('saving')}
                     </span>
-                  ) : 'Save'}
+                  ) : t('save')}
                 </Button>
-                <Button onClick={onCancel} variant="secondary" size="sm" disabled={saveBusy}>Cancel</Button>
+                <Button onClick={onCancel} variant="secondary" size="sm" disabled={saveBusy}>{t('cancel')}</Button>
               </>
             ) : (
-              <Button onClick={onEdit} variant="secondary" size="sm">Edit</Button>
+              <Button onClick={onEdit} variant="secondary" size="sm">{t('edit')}</Button>
             )}
           </div>
         </div>
@@ -294,7 +296,7 @@ export function OverviewTab({
         {/* Right Column — Direct Message */}
         <div className="border border-border rounded-lg p-4 flex flex-col">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-medium text-foreground">Message</h4>
+            <h4 className="text-sm font-medium text-foreground">{t('message')}</h4>
             {messageStatus && (
               <span className={`text-xs ${messageStatus === 'Sent' ? 'text-green-400' : 'text-rose-400'}`}>
                 {messageStatus}
@@ -307,17 +309,17 @@ export function OverviewTab({
               value={messageFrom}
               onChange={(e) => setMessageFrom(e.target.value)}
               className="bg-surface-1 text-foreground rounded px-2.5 py-1.5 text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
-              placeholder="From"
+              placeholder={t('from')}
             />
             <textarea
               value={directMessage}
               onChange={(e) => setDirectMessage(e.target.value)}
               className="flex-1 min-h-[80px] bg-surface-1 text-foreground rounded px-2.5 py-2 text-sm border border-border focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
-              placeholder={`Send a message to ${agent.name}...`}
+              placeholder={t('sendMessagePlaceholder', { name: agent.name })}
             />
             <div className="flex justify-end">
               <Button type="submit" size="sm" disabled={!directMessage.trim()}>
-                Send
+                {t('send')}
               </Button>
             </div>
           </form>
@@ -340,6 +342,7 @@ export function SoulTab({
   templates: SoulTemplate[]
   onSave: (content: string, templateName?: string) => Promise<void>
 }) {
+  const t = useTranslations('agentDetail')
   const [editing, setEditing] = useState(false)
   const [content, setContent] = useState(soulContent)
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
@@ -371,14 +374,14 @@ export function SoulTab({
   return (
     <div className="p-6 space-y-4">
       <div className="flex justify-between items-center">
-        <h4 className="text-lg font-medium text-foreground">SOUL Configuration</h4>
+        <h4 className="text-lg font-medium text-foreground">{t('soulConfiguration')}</h4>
         <div className="flex gap-2">
           {!editing && (
             <Button
               onClick={() => setEditing(true)}
               size="sm"
             >
-              Edit SOUL
+              {t('editSoul')}
             </Button>
           )}
         </div>
@@ -387,17 +390,17 @@ export function SoulTab({
       {/* Template Selector */}
       {editing && templates.length > 0 && (
         <div className="p-4 bg-surface-1/50 rounded-lg">
-          <h5 className="text-sm font-medium text-foreground mb-2">Load Template</h5>
+          <h5 className="text-sm font-medium text-foreground mb-2">{t('loadTemplate')}</h5>
           <div className="flex gap-2">
             <select
               value={selectedTemplate}
               onChange={(e) => setSelectedTemplate(e.target.value)}
               className="flex-1 bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/50"
             >
-              <option value="">Select a template...</option>
+              <option value="">{t('selectTemplate')}</option>
               {templates.map(template => (
                 <option key={template.name} value={template.name}>
-                  {template.description} ({template.size} chars)
+                  {template.description} ({t('chars', { count: template.size })})
                 </option>
               ))}
             </select>
@@ -406,7 +409,7 @@ export function SoulTab({
               disabled={!selectedTemplate}
               variant="success"
             >
-              Load
+              {t('load')}
             </Button>
           </div>
         </div>
@@ -415,7 +418,7 @@ export function SoulTab({
       {/* SOUL Editor */}
       <div>
         <label className="block text-sm font-medium text-muted-foreground mb-1">
-          SOUL Content ({content.length} characters)
+          {t('soulContent', { count: content.length })}
         </label>
         {editing ? (
           <textarea
@@ -423,14 +426,14 @@ export function SoulTab({
             onChange={(e) => setContent(e.target.value)}
             rows={20}
             className="w-full bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/50 font-mono text-sm"
-            placeholder="Define the agent's personality, instructions, and behavior patterns..."
+            placeholder={t('soulEditorPlaceholder')}
           />
         ) : (
           <div className="bg-surface-1/30 rounded p-4 max-h-96 overflow-y-auto">
             {content ? (
               <pre className="text-foreground whitespace-pre-wrap text-sm">{content}</pre>
             ) : (
-              <p className="text-muted-foreground italic">No SOUL content defined</p>
+              <p className="text-muted-foreground italic">{t('noSoulContent')}</p>
             )}
           </div>
         )}
@@ -443,7 +446,7 @@ export function SoulTab({
             onClick={handleSave}
             className="flex-1"
           >
-            Save SOUL
+            {t('saveSoul')}
           </Button>
           <Button
             onClick={() => {
@@ -453,7 +456,7 @@ export function SoulTab({
             variant="secondary"
             className="flex-1"
           >
-            Cancel
+            {t('cancel')}
           </Button>
         </div>
       )}
@@ -471,6 +474,7 @@ export function MemoryTab({
   workingMemory: string
   onSave: (content: string, append?: boolean) => Promise<void>
 }) {
+  const t = useTranslations('agentDetail')
   const [editing, setEditing] = useState(false)
   const [content, setContent] = useState(workingMemory)
   const [appendMode, setAppendMode] = useState(false)
@@ -492,7 +496,7 @@ export function MemoryTab({
   }
 
   const handleClear = async () => {
-    if (confirm('Are you sure you want to clear all working memory?')) {
+    if (confirm(t('confirmClearMemory'))) {
       await onSave('')
       setContent('')
       setEditing(false)
@@ -503,9 +507,9 @@ export function MemoryTab({
     <div className="p-6 space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h4 className="text-lg font-medium text-foreground">Working Memory</h4>
+          <h4 className="text-lg font-medium text-foreground">{t('workingMemory')}</h4>
           <p className="text-xs text-muted-foreground mt-1">
-            This is <strong className="text-foreground">agent-level</strong> scratchpad memory (stored as WORKING.md in the database), not the workspace memory folder.
+            {t('workingMemoryDesc')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -519,13 +523,13 @@ export function MemoryTab({
                 variant="success"
                 size="sm"
               >
-                Add Entry
+                {t('addEntry')}
               </Button>
               <Button
                 onClick={() => setEditing(true)}
                 size="sm"
               >
-                Edit Memory
+                {t('editMemory')}
               </Button>
             </>
           )}
@@ -534,16 +538,15 @@ export function MemoryTab({
 
       {/* Info Banner */}
       <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-xs text-blue-300">
-        <strong className="text-blue-200">Agent Memory vs Workspace Memory:</strong>{' '}
-        This tab edits only this agent&apos;s private working memory (a scratchpad stored in the database).
-        To browse or edit all workspace memory files (daily logs, knowledge base, MEMORY.md, etc.), visit the{' '}
-        <Link href="/memory" className="text-blue-400 underline hover:text-blue-300">Memory Browser</Link> page.
+        <strong className="text-blue-200">{t('memoryBannerTitle')}</strong>{' '}
+        {t('memoryBannerDesc')}{' '}
+        <Link href="/memory" className="text-blue-400 underline hover:text-blue-300">{t('memoryBrowserLink')}</Link> {t('memoryBannerPage')}
       </div>
 
       {/* Memory Content */}
       <div>
         <label className="block text-sm font-medium text-muted-foreground mb-1">
-          Memory Content ({content.length} characters)
+          {t('memoryContent', { count: content.length })}
         </label>
         
         {editing && appendMode ? (
@@ -556,7 +559,7 @@ export function MemoryTab({
               onChange={(e) => setNewEntry(e.target.value)}
               rows={5}
               className="w-full bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/50"
-              placeholder="Add new memory entry..."
+              placeholder={t('addMemoryEntryPlaceholder')}
             />
           </div>
         ) : editing ? (
@@ -565,14 +568,14 @@ export function MemoryTab({
             onChange={(e) => setContent(e.target.value)}
             rows={15}
             className="w-full bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/50 font-mono text-sm"
-            placeholder="Working memory for temporary notes, current tasks, and session data..."
+            placeholder={t('workingMemoryPlaceholder')}
           />
         ) : (
           <div className="bg-surface-1/30 rounded p-4 max-h-96 overflow-y-auto">
             {content ? (
               <pre className="text-foreground whitespace-pre-wrap text-sm">{content}</pre>
             ) : (
-              <p className="text-muted-foreground italic">No working memory content</p>
+              <p className="text-muted-foreground italic">{t('noWorkingMemory')}</p>
             )}
           </div>
         )}
@@ -585,7 +588,7 @@ export function MemoryTab({
             onClick={handleSave}
             className="flex-1"
           >
-            {appendMode ? 'Add Entry' : 'Save Memory'}
+            {appendMode ? t('addEntry') : t('saveMemory')}
           </Button>
           <Button
             onClick={() => {
@@ -597,14 +600,14 @@ export function MemoryTab({
             variant="secondary"
             className="flex-1"
           >
-            Cancel
+            {t('cancel')}
           </Button>
           {!appendMode && (
             <Button
               onClick={handleClear}
               variant="destructive"
             >
-              Clear All
+              {t('clearAll')}
             </Button>
           )}
         </div>
@@ -615,6 +618,7 @@ export function MemoryTab({
 
 // Tasks Tab Component
 export function TasksTab({ agent }: { agent: Agent }) {
+  const t = useTranslations('agentDetail')
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -639,15 +643,15 @@ export function TasksTab({ agent }: { agent: Agent }) {
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center py-8">
-        <Loader variant="inline" label="Loading tasks" />
+        <Loader variant="inline" label={t('loadingTasks')} />
       </div>
     )
   }
 
   return (
     <div className="p-6 space-y-4">
-      <h4 className="text-lg font-medium text-foreground">Assigned Tasks</h4>
-      
+      <h4 className="text-lg font-medium text-foreground">{t('assignedTasks')}</h4>
+
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/50">
           <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center mb-2">
@@ -656,7 +660,7 @@ export function TasksTab({ agent }: { agent: Agent }) {
               <path d="M6 6h4M6 9h3" />
             </svg>
           </div>
-          <p className="text-sm">No tasks assigned</p>
+          <p className="text-sm">{t('noTasksAssigned')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -698,7 +702,7 @@ export function TasksTab({ agent }: { agent: Agent }) {
               
               {task.due_date && (
                 <div className="text-xs text-muted-foreground mt-2">
-                  Due: {new Date(task.due_date * 1000).toLocaleDateString()}
+                  {t('due')}: {new Date(task.due_date * 1000).toLocaleDateString()}
                 </div>
               )}
             </div>
@@ -711,6 +715,7 @@ export function TasksTab({ agent }: { agent: Agent }) {
 
 // Activity Tab Component
 export function ActivityTab({ agent }: { agent: Agent }) {
+  const t = useTranslations('agentDetail')
   const [activities, setActivities] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -735,7 +740,7 @@ export function ActivityTab({ agent }: { agent: Agent }) {
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center py-8">
-        <Loader variant="inline" label="Loading activity" />
+        <Loader variant="inline" label={t('loadingActivity')} />
       </div>
     )
   }
@@ -755,7 +760,7 @@ export function ActivityTab({ agent }: { agent: Agent }) {
 
   return (
     <div className="p-6 space-y-4">
-      <h4 className="text-lg font-medium text-foreground">Recent Activity</h4>
+      <h4 className="text-lg font-medium text-foreground">{t('recentActivity')}</h4>
       
       {activities.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/50">
@@ -764,7 +769,7 @@ export function ActivityTab({ agent }: { agent: Agent }) {
               <path d="M2 4h12M2 8h8M2 12h10" />
             </svg>
           </div>
-          <p className="text-sm">No recent activity</p>
+          <p className="text-sm">{t('noRecentActivity')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -829,6 +834,7 @@ export function CreateAgentModal({
   onClose: () => void
   onCreated: () => void
 }) {
+  const t = useTranslations('agentDetail')
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const [availableModels, setAvailableModels] = useState<string[]>([])
@@ -908,13 +914,13 @@ export function CreateAgentModal({
 
     // Build progress steps based on checkbox state
     const steps: ProgressStep[] = [
-      { label: 'Creating agent record in database', status: 'pending' },
+      { label: t('stepCreatingRecord'), status: 'pending' },
     ]
     if (formData.write_to_gateway) {
-      steps.push({ label: 'Writing to gateway config (openclaw.json)', status: 'pending' })
+      steps.push({ label: t('stepWritingGateway'), status: 'pending' })
     }
     if (formData.provision_openclaw_workspace) {
-      steps.push({ label: 'Provisioning OpenClaw workspace', status: 'pending' })
+      steps.push({ label: t('stepProvisioningWorkspace'), status: 'pending' })
     }
     setProgressSteps([...steps])
 
@@ -997,7 +1003,7 @@ export function CreateAgentModal({
         <div className="p-6 border-b border-border flex-shrink-0">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-xl font-bold text-foreground">Create New Agent</h3>
+              <h3 className="text-xl font-bold text-foreground">{t('createNewAgent')}</h3>
               <div className="flex gap-3 mt-2">
                 {[1, 2, 3].map(s => (
                   <div key={s} className="flex items-center gap-1.5">
@@ -1009,7 +1015,7 @@ export function CreateAgentModal({
                       {step > s ? '\u2713' : s}
                     </div>
                     <span className={`text-xs ${step === s ? 'text-foreground' : 'text-muted-foreground'}`}>
-                      {s === 1 ? 'Template' : s === 2 ? 'Configure' : 'Review'}
+                      {s === 1 ? t('stepTemplate') : s === 2 ? t('stepConfigure') : t('stepReview')}
                     </span>
                   </div>
                 ))}
@@ -1049,7 +1055,7 @@ export function CreateAgentModal({
                       {MODEL_TIER_LABELS[tmpl.modelTier]}
                     </span>
                     <span className="px-2 py-0.5 text-xs rounded bg-surface-2 text-muted-foreground">
-                      {tmpl.toolCount} tools
+                      {t('toolCount', { count: tmpl.toolCount })}
                     </span>
                   </div>
                 </Button>
@@ -1066,7 +1072,7 @@ export function CreateAgentModal({
                   <span className="text-2xl">+</span>
                   <span className="font-semibold text-foreground">Custom</span>
                 </div>
-                <p className="text-xs text-muted-foreground">Start from scratch with blank config</p>
+                <p className="text-xs text-muted-foreground">{t('customDesc')}</p>
               </Button>
             </div>
           )}
@@ -1076,18 +1082,18 @@ export function CreateAgentModal({
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-muted-foreground mb-1">Display Name *</label>
+                  <label className="block text-sm text-muted-foreground mb-1">{t('displayName')}</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => updateName(e.target.value)}
                     className="w-full bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                    placeholder="e.g., Frontend Dev"
+                    placeholder={t('displayNamePlaceholder')}
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-muted-foreground mb-1">Agent ID</label>
+                  <label className="block text-sm text-muted-foreground mb-1">{t('agentId')}</label>
                   <input
                     type="text"
                     value={formData.id}
@@ -1100,7 +1106,7 @@ export function CreateAgentModal({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-muted-foreground mb-1">Role / Theme</label>
+                  <label className="block text-sm text-muted-foreground mb-1">{t('roleTheme')}</label>
                   <input
                     type="text"
                     value={formData.role}
@@ -1110,7 +1116,7 @@ export function CreateAgentModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-muted-foreground mb-1">Emoji</label>
+                  <label className="block text-sm text-muted-foreground mb-1">{t('emoji')}</label>
                   <input
                     type="text"
                     value={formData.emoji}
@@ -1122,7 +1128,7 @@ export function CreateAgentModal({
               </div>
 
               <div>
-                <label className="block text-sm text-muted-foreground mb-1">Model Tier</label>
+                <label className="block text-sm text-muted-foreground mb-1">{t('modelTier')}</label>
                 <div className="flex gap-2">
                   {(['opus', 'sonnet', 'haiku'] as const).map(tier => (
                     <Button
@@ -1144,7 +1150,7 @@ export function CreateAgentModal({
               </div>
 
               <div>
-                <label className="block text-sm text-muted-foreground mb-1">Primary Model</label>
+                <label className="block text-sm text-muted-foreground mb-1">{t('primaryModel')}</label>
                 <input
                   type="text"
                   value={formData.modelPrimary}
@@ -1162,49 +1168,49 @@ export function CreateAgentModal({
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm text-muted-foreground mb-1">Workspace</label>
+                  <label className="block text-sm text-muted-foreground mb-1">{t('workspace')}</label>
                   <select
                     value={formData.workspaceAccess}
                     onChange={(e) => setFormData(prev => ({ ...prev, workspaceAccess: e.target.value as any }))}
                     className="w-full bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/50"
                   >
-                    <option value="rw">Read/Write</option>
-                    <option value="ro">Read Only</option>
-                    <option value="none">None</option>
+                    <option value="rw">{t('readWrite')}</option>
+                    <option value="ro">{t('readOnly')}</option>
+                    <option value="none">{t('none')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-muted-foreground mb-1">Sandbox</label>
+                  <label className="block text-sm text-muted-foreground mb-1">{t('sandbox')}</label>
                   <select
                     value={formData.sandboxMode}
                     onChange={(e) => setFormData(prev => ({ ...prev, sandboxMode: e.target.value as any }))}
                     className="w-full bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/50"
                   >
-                    <option value="all">All (Docker)</option>
-                    <option value="non-main">Non-main</option>
+                    <option value="all">{t('sandboxAll')}</option>
+                    <option value="non-main">{t('sandboxNonMain')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-muted-foreground mb-1">Network</label>
+                  <label className="block text-sm text-muted-foreground mb-1">{t('network')}</label>
                   <select
                     value={formData.dockerNetwork}
                     onChange={(e) => setFormData(prev => ({ ...prev, dockerNetwork: e.target.value as any }))}
                     className="w-full bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/50"
                   >
-                    <option value="none">None (isolated)</option>
-                    <option value="bridge">Bridge (internet)</option>
+                    <option value="none">{t('networkIsolated')}</option>
+                    <option value="bridge">{t('networkBridge')}</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm text-muted-foreground mb-1">Session Key (optional)</label>
+                <label className="block text-sm text-muted-foreground mb-1">{t('sessionKeyOptional')}</label>
                 <input
                   type="text"
                   value={formData.session_key}
                   onChange={(e) => setFormData(prev => ({ ...prev, session_key: e.target.value }))}
                   className="w-full bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                  placeholder="OpenClaw session identifier"
+                  placeholder={t('sessionKeyPlaceholder')}
                 />
               </div>
             </div>
@@ -1216,7 +1222,7 @@ export function CreateAgentModal({
               {progressSteps ? (
                 /* Progress view */
                 <div className="space-y-3 py-4">
-                  <h4 className="text-sm font-medium text-muted-foreground mb-4">Setting up your agent...</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-4">{t('settingUpAgent')}</h4>
                   {progressSteps.map((ps, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -1247,7 +1253,7 @@ export function CreateAgentModal({
                     </div>
                   ))}
                   {progressSteps.every(s => s.status === 'done') && (
-                    <p className="text-sm text-green-400 mt-4">Agent created successfully!</p>
+                    <p className="text-sm text-green-400 mt-4">{t('agentCreatedSuccess')}</p>
                   )}
                 </div>
               ) : (
@@ -1263,16 +1269,16 @@ export function CreateAgentModal({
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div><span className="text-muted-foreground">ID:</span> <span className="text-foreground font-mono">{formData.id}</span></div>
-                      <div><span className="text-muted-foreground">Template:</span> <span className="text-foreground">{selectedTemplateData?.label || 'Custom'}</span></div>
-                      <div><span className="text-muted-foreground">Model:</span> <span className={`px-2 py-0.5 rounded text-xs ${MODEL_TIER_COLORS[formData.modelTier]}`}>{MODEL_TIER_LABELS[formData.modelTier]}</span></div>
-                      <div><span className="text-muted-foreground">Tools:</span> <span className="text-foreground">{selectedTemplateData?.toolCount || 'Custom'}</span></div>
-                      <div className="col-span-2"><span className="text-muted-foreground">Primary Model:</span> <span className="text-foreground font-mono">{formData.modelPrimary || DEFAULT_MODEL_BY_TIER[formData.modelTier]}</span></div>
-                      <div><span className="text-muted-foreground">Workspace:</span> <span className="text-foreground">{formData.workspaceAccess}</span></div>
-                      <div><span className="text-muted-foreground">Sandbox:</span> <span className="text-foreground">{formData.sandboxMode}</span></div>
-                      <div><span className="text-muted-foreground">Network:</span> <span className="text-foreground">{formData.dockerNetwork}</span></div>
+                      <div><span className="text-muted-foreground">{t('idLabel')}:</span> <span className="text-foreground font-mono">{formData.id}</span></div>
+                      <div><span className="text-muted-foreground">{t('templateLabel')}:</span> <span className="text-foreground">{selectedTemplateData?.label || t('custom')}</span></div>
+                      <div><span className="text-muted-foreground">{t('model')}:</span> <span className={`px-2 py-0.5 rounded text-xs ${MODEL_TIER_COLORS[formData.modelTier]}`}>{MODEL_TIER_LABELS[formData.modelTier]}</span></div>
+                      <div><span className="text-muted-foreground">{t('toolsLabel')}:</span> <span className="text-foreground">{selectedTemplateData?.toolCount || t('custom')}</span></div>
+                      <div className="col-span-2"><span className="text-muted-foreground">{t('primaryModel')}:</span> <span className="text-foreground font-mono">{formData.modelPrimary || DEFAULT_MODEL_BY_TIER[formData.modelTier]}</span></div>
+                      <div><span className="text-muted-foreground">{t('workspace')}:</span> <span className="text-foreground">{formData.workspaceAccess}</span></div>
+                      <div><span className="text-muted-foreground">{t('sandbox')}:</span> <span className="text-foreground">{formData.sandboxMode}</span></div>
+                      <div><span className="text-muted-foreground">{t('network')}:</span> <span className="text-foreground">{formData.dockerNetwork}</span></div>
                       {formData.session_key && (
-                        <div><span className="text-muted-foreground">Session:</span> <span className="text-foreground font-mono">{formData.session_key}</span></div>
+                        <div><span className="text-muted-foreground">{t('session')}:</span> <span className="text-foreground font-mono">{formData.session_key}</span></div>
                       )}
                     </div>
                   </div>
@@ -1284,7 +1290,7 @@ export function CreateAgentModal({
                       onChange={(e) => setFormData(prev => ({ ...prev, write_to_gateway: e.target.checked }))}
                       className="w-4 h-4 rounded border-border"
                     />
-                    <span className="text-sm text-foreground">Add to gateway config (openclaw.json)</span>
+                    <span className="text-sm text-foreground">{t('addToGateway')}</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1294,7 +1300,7 @@ export function CreateAgentModal({
                       onChange={(e) => setFormData(prev => ({ ...prev, provision_openclaw_workspace: e.target.checked }))}
                       className="w-4 h-4 rounded border-border"
                     />
-                    <span className="text-sm text-foreground">Provision full OpenClaw workspace (`openclaw agents add`)</span>
+                    <span className="text-sm text-foreground">{t('provisionWorkspace')}</span>
                   </label>
                 </>
               )}
@@ -1310,16 +1316,16 @@ export function CreateAgentModal({
               <>
                 <div className="flex-1" />
                 <Button onClick={() => { setProgressSteps(null); handleCreate() }} size="lg">
-                  Retry
+                  {t('retry')}
                 </Button>
                 <Button onClick={onClose} variant="secondary">
-                  Close
+                  {t('close')}
                 </Button>
               </>
             ) : progressSteps.every(s => s.status === 'done') ? (
               <>
                 <div className="flex-1" />
-                <span className="text-sm text-muted-foreground self-center">Closing...</span>
+                <span className="text-sm text-muted-foreground self-center">{t('closing')}</span>
               </>
             ) : (
               /* In-progress — no buttons */
@@ -1333,7 +1339,7 @@ export function CreateAgentModal({
                   onClick={() => setStep((step - 1) as 1 | 2)}
                   variant="secondary"
                 >
-                  Back
+                  {t('back')}
                 </Button>
               )}
               <div className="flex-1" />
@@ -1343,7 +1349,7 @@ export function CreateAgentModal({
                   disabled={step === 2 && !formData.name.trim()}
                   size="lg"
                 >
-                  Next
+                  {t('next')}
                 </Button>
               ) : (
                 <Button
@@ -1351,11 +1357,11 @@ export function CreateAgentModal({
                   disabled={isCreating || !formData.name.trim()}
                   size="lg"
                 >
-                  Create Agent
+                  {t('createAgent')}
                 </Button>
               )}
               <Button onClick={onClose} variant="secondary">
-                Cancel
+                {t('cancel')}
               </Button>
             </>
           )}
@@ -1377,6 +1383,7 @@ export function ConfigTab({
   onSaveWorkspaceFile?: (file: 'identity.md' | 'agent.md', content: string) => Promise<void>
   onSave: () => void
 }) {
+  const t = useTranslations('agentDetail')
   const [config, setConfig] = useState<any>(agent.config || {})
   const [editing, setEditing] = useState(false)
   const [showJson, setShowJson] = useState(false)
@@ -1447,7 +1454,7 @@ export function ConfigTab({
   const updateModelConfig = (updater: (current: { primary?: string; fallbacks?: string[] }) => { primary?: string; fallbacks?: string[] }) => {
     setConfig((prev: any) => {
       const nextModel = updater({ ...(prev?.model || {}) })
-      const dedupedFallbacks = [...new Set((nextModel.fallbacks || []).map((value) => value.trim()).filter(Boolean))]
+      const dedupedFallbacks = [...new Set((nextModel.fallbacks || []).map((value) => (value || '').trim()).filter(Boolean))]
       return {
         ...prev,
         model: {
@@ -1575,14 +1582,14 @@ export function ConfigTab({
   return (
     <div className="p-6 space-y-4">
       <div className="flex justify-between items-center">
-        <h4 className="text-lg font-medium text-foreground">OpenClaw Config</h4>
+        <h4 className="text-lg font-medium text-foreground">{t('openclawConfig')}</h4>
         <div className="flex gap-2">
           <Button
             onClick={() => setShowJson(!showJson)}
             variant="secondary"
             size="xs"
           >
-            {showJson ? 'Structured' : 'JSON'}
+            {showJson ? t('structured') : 'JSON'}
           </Button>
           {!editing && (
             <Button
@@ -1604,7 +1611,7 @@ export function ConfigTab({
       {config.openclawId && (
         <div className="text-xs text-muted-foreground">
           OpenClaw ID: <span className="font-mono text-foreground">{config.openclawId}</span>
-          {config.isDefault && <span className="ml-2 px-1.5 py-0.5 bg-primary/20 text-primary rounded text-xs">Default</span>}
+          {config.isDefault && <span className="ml-2 px-1.5 py-0.5 bg-primary/20 text-primary rounded text-xs">{t('default')}</span>}
         </div>
       )}
 
@@ -1629,11 +1636,11 @@ export function ConfigTab({
         <div className="space-y-4">
           {/* Model */}
           <div className="bg-surface-1/50 rounded-lg p-4">
-            <h5 className="text-sm font-medium text-foreground mb-2">Model</h5>
+            <h5 className="text-sm font-medium text-foreground mb-2">{t('model')}</h5>
             {editing ? (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Primary model</label>
+                  <label className="block text-xs text-muted-foreground mb-1">{t('primaryModel')}</label>
                   <input
                     value={modelPrimary}
                     onChange={(e) => updateModelConfig((current) => ({ ...current, primary: e.target.value }))}
@@ -1648,7 +1655,7 @@ export function ConfigTab({
                   </datalist>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Fallback models</label>
+                  <label className="block text-xs text-muted-foreground mb-1">{t('fallbackModels')}</label>
                   <div className="space-y-2">
                     {modelFallbacks.map((fallback: string, index: number) => (
                       <div key={`${fallback}-${index}`} className="flex gap-2">
@@ -1679,7 +1686,7 @@ export function ConfigTab({
                         value={newFallbackModel}
                         onChange={(e) => setNewFallbackModel(e.target.value)}
                         list="agent-model-suggestions"
-                        placeholder="Add fallback model"
+                        placeholder={t('addFallbackModel')}
                         className="flex-1 bg-surface-1 text-foreground rounded px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
                       />
                       <Button
@@ -1695,10 +1702,10 @@ export function ConfigTab({
               </div>
             ) : (
               <div className="text-sm">
-                <div><span className="text-muted-foreground">Primary:</span> <span className="text-foreground font-mono">{modelPrimary || 'not configured'}</span></div>
+                <div><span className="text-muted-foreground">{t('primary')}:</span> <span className="text-foreground font-mono">{modelPrimary || t('notConfigured')}</span></div>
                 {modelFallbacks.length > 0 && (
                   <div className="mt-1">
-                    <span className="text-muted-foreground">Fallbacks:</span>
+                    <span className="text-muted-foreground">{t('fallbacks')}:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {modelFallbacks.map((fb: string, i: number) => (
                         <span key={i} className="px-2 py-0.5 text-xs bg-surface-2 rounded text-muted-foreground font-mono">{fb.split('/').pop()}</span>
@@ -1712,12 +1719,12 @@ export function ConfigTab({
 
           {/* Identity */}
           <div className="bg-surface-1/50 rounded-lg p-4">
-            <h5 className="text-sm font-medium text-foreground mb-2">Identity</h5>
+            <h5 className="text-sm font-medium text-foreground mb-2">{t('identity')}</h5>
             {editing ? (
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1">Emoji</label>
+                    <label className="block text-xs text-muted-foreground mb-1">{t('emoji')}</label>
                     <input
                       value={identityEmoji}
                       onChange={(e) => updateIdentityField('emoji', e.target.value)}
@@ -1726,7 +1733,7 @@ export function ConfigTab({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1">Name</label>
+                    <label className="block text-xs text-muted-foreground mb-1">{t('name')}</label>
                     <input
                       value={identity.name || ''}
                       onChange={(e) => updateIdentityField('name', e.target.value)}
@@ -1735,7 +1742,7 @@ export function ConfigTab({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1">Theme / Role</label>
+                    <label className="block text-xs text-muted-foreground mb-1">{t('themeRole')}</label>
                     <input
                       value={identity.theme || ''}
                       onChange={(e) => updateIdentityField('theme', e.target.value)}
@@ -1745,7 +1752,7 @@ export function ConfigTab({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Identity content</label>
+                  <label className="block text-xs text-muted-foreground mb-1">{t('identityContent')}</label>
                   <textarea
                     value={identity.content || ''}
                     onChange={(e) => updateIdentityField('content', e.target.value)}
@@ -1775,9 +1782,9 @@ export function ConfigTab({
 
           {/* Workspace files */}
           <div className="bg-surface-1/50 rounded-lg p-4 space-y-4">
-            <h5 className="text-sm font-medium text-foreground">Workspace Files</h5>
+            <h5 className="text-sm font-medium text-foreground">{t('workspaceFiles')}</h5>
             <p className="text-xs text-muted-foreground">
-              These editors read/write the real workspace files for this agent.
+              {t('workspaceFilesDesc')}
             </p>
 
             <div className="space-y-2">
@@ -1789,7 +1796,7 @@ export function ConfigTab({
                     disabled={savingIdentityMd}
                     size="xs"
                   >
-                    {savingIdentityMd ? 'Saving...' : 'Save identity.md'}
+                    {savingIdentityMd ? t('saving') : t('saveIdentityMd')}
                   </Button>
                 )}
               </div>
@@ -1803,7 +1810,7 @@ export function ConfigTab({
                 />
               ) : (
                 <pre className="bg-surface-1 rounded p-3 text-xs text-muted-foreground overflow-auto whitespace-pre-wrap min-h-[96px]">
-                  {identityMdInput || 'identity.md not found or empty'}
+                  {identityMdInput || t('identityMdEmpty')}
                 </pre>
               )}
             </div>
@@ -1813,7 +1820,7 @@ export function ConfigTab({
                 <label className="text-xs text-muted-foreground font-medium">agent.md</label>
                 {editing && onSaveWorkspaceFile && (
                   <Button onClick={() => saveWorkspaceFile('agent.md')} disabled={savingAgentMd} size="xs">
-                    {savingAgentMd ? 'Saving...' : 'Save agent.md'}
+                    {savingAgentMd ? t('saving') : t('saveAgentMd')}
                   </Button>
                 )}
               </div>
@@ -1827,15 +1834,15 @@ export function ConfigTab({
                 />
               ) : (
                 <pre className="bg-surface-1 rounded p-3 text-xs text-muted-foreground overflow-auto whitespace-pre-wrap min-h-[120px]">
-                  {agentMdInput || 'agent.md not found or empty'}
+                  {agentMdInput || t('agentMdEmpty')}
                 </pre>
               )}
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground font-medium">Other markdown files (read-only)</label>
+              <label className="text-xs text-muted-foreground font-medium">{t('otherMarkdownFiles')}</label>
               {loadingWorkspaceDocs ? (
-                <div className="text-xs text-muted-foreground">Loading workspace files...</div>
+                <div className="text-xs text-muted-foreground">{t('loadingWorkspaceFiles')}</div>
               ) : (
                 <div className="space-y-2">
                   {workspaceDocs
@@ -1845,11 +1852,11 @@ export function ConfigTab({
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-mono text-foreground">{doc.name}</span>
                           <span className={`text-2xs ${doc.exists ? 'text-green-400' : 'text-muted-foreground'}`}>
-                            {doc.exists ? `${doc.content.length} chars` : 'missing'}
+                            {doc.exists ? t('chars', { count: doc.content.length }) : t('missing')}
                           </span>
                         </div>
                         <pre className="text-xs text-muted-foreground overflow-auto whitespace-pre-wrap max-h-32">
-                          {doc.exists ? doc.content : `${doc.name} not found`}
+                          {doc.exists ? doc.content : t('fileNotFound', { name: doc.name })}
                         </pre>
                       </div>
                     ))}
@@ -1860,61 +1867,61 @@ export function ConfigTab({
 
           {/* Sandbox */}
           <div className="bg-surface-1/50 rounded-lg p-4">
-            <h5 className="text-sm font-medium text-foreground mb-2">Sandbox</h5>
+            <h5 className="text-sm font-medium text-foreground mb-2">{t('sandbox')}</h5>
             {editing ? (
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Mode</label>
+                  <label className="block text-xs text-muted-foreground mb-1">{t('mode')}</label>
                   <select
                     value={sandbox.mode || ''}
                     onChange={(e) => updateSandboxField('mode', e.target.value)}
                     className="w-full bg-surface-1 text-foreground rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                   >
-                    <option value="">Not configured</option>
-                    <option value="all">All</option>
-                    <option value="non-main">Non-main</option>
-                    <option value="none">None</option>
+                    <option value="">{t('notConfigured')}</option>
+                    <option value="all">{t('all')}</option>
+                    <option value="non-main">{t('nonMain')}</option>
+                    <option value="none">{t('none')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Workspace Access</label>
+                  <label className="block text-xs text-muted-foreground mb-1">{t('workspaceAccess')}</label>
                   <select
                     value={sandbox.workspaceAccess || ''}
                     onChange={(e) => updateSandboxField('workspaceAccess', e.target.value)}
                     className="w-full bg-surface-1 text-foreground rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                   >
-                    <option value="">Not configured</option>
-                    <option value="rw">Read-write</option>
-                    <option value="ro">Read-only</option>
-                    <option value="none">None</option>
+                    <option value="">{t('notConfigured')}</option>
+                    <option value="rw">{t('readWrite')}</option>
+                    <option value="ro">{t('readOnly')}</option>
+                    <option value="none">{t('none')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Network</label>
+                  <label className="block text-xs text-muted-foreground mb-1">{t('network')}</label>
                   <input
                     value={sandbox.network || ''}
                     onChange={(e) => updateSandboxField('network', e.target.value)}
                     className="w-full bg-surface-1 text-foreground rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
-                    placeholder="none"
+                    placeholder={t('none')}
                   />
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-2 text-sm">
-                <div><span className="text-muted-foreground">Mode:</span> <span className="text-foreground">{sandboxMode}</span></div>
-                <div><span className="text-muted-foreground">Workspace:</span> <span className="text-foreground">{sandboxWorkspace}</span></div>
-                <div><span className="text-muted-foreground">Network:</span> <span className="text-foreground">{sandboxNetwork}</span></div>
+                <div><span className="text-muted-foreground">{t('mode')}:</span> <span className="text-foreground">{sandboxMode}</span></div>
+                <div><span className="text-muted-foreground">{t('workspace')}:</span> <span className="text-foreground">{sandboxWorkspace}</span></div>
+                <div><span className="text-muted-foreground">{t('network')}:</span> <span className="text-foreground">{sandboxNetwork}</span></div>
               </div>
             )}
           </div>
 
           {/* Tools */}
           <div className="bg-surface-1/50 rounded-lg p-4">
-            <h5 className="text-sm font-medium text-foreground mb-2">Tools</h5>
+            <h5 className="text-sm font-medium text-foreground mb-2">{t('tools')}</h5>
             {editing ? (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs text-green-400 font-medium mb-1">Allow list</label>
+                  <label className="block text-xs text-green-400 font-medium mb-1">{t('allowList')}</label>
                   <div className="flex flex-wrap gap-1 mb-2">
                     {toolAllow.map((tool: string, i: number) => (
                       <span key={`${tool}-${i}`} className="px-2 py-0.5 text-xs bg-green-500/10 text-green-400 rounded border border-green-500/20 flex items-center gap-1">
@@ -1928,7 +1935,7 @@ export function ConfigTab({
                       value={newAllowTool}
                       onChange={(e) => setNewAllowTool(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTool('allow', newAllowTool); setNewAllowTool('') } }}
-                      placeholder="Add allowed tool name"
+                      placeholder={t('addAllowedTool')}
                       className="flex-1 bg-surface-1 text-foreground rounded px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
                     />
                     <Button
@@ -1937,12 +1944,12 @@ export function ConfigTab({
                       size="sm"
                       className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30"
                     >
-                      Add
+                      {t('add')}
                     </Button>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-red-400 font-medium mb-1">Deny list</label>
+                  <label className="block text-xs text-red-400 font-medium mb-1">{t('denyList')}</label>
                   <div className="flex flex-wrap gap-1 mb-2">
                     {toolDeny.map((tool: string, i: number) => (
                       <span key={`${tool}-${i}`} className="px-2 py-0.5 text-xs bg-red-500/10 text-red-400 rounded border border-red-500/20 flex items-center gap-1">
@@ -1956,7 +1963,7 @@ export function ConfigTab({
                       value={newDenyTool}
                       onChange={(e) => setNewDenyTool(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTool('deny', newDenyTool); setNewDenyTool('') } }}
-                      placeholder="Add denied tool name"
+                      placeholder={t('addDeniedTool')}
                       className="flex-1 bg-surface-1 text-foreground rounded px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
                     />
                     <Button
@@ -1965,7 +1972,7 @@ export function ConfigTab({
                       size="sm"
                       className="bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
                     >
-                      Add
+                      {t('add')}
                     </Button>
                   </div>
                 </div>
@@ -1974,7 +1981,7 @@ export function ConfigTab({
               <>
                 {toolAllow.length > 0 && (
                   <div className="mb-2">
-                    <span className="text-xs text-green-400 font-medium">Allow ({toolAllow.length}):</span>
+                    <span className="text-xs text-green-400 font-medium">{t('allowCount', { count: toolAllow.length })}:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {toolAllow.map((tool: string) => (
                         <span key={tool} className="px-2 py-0.5 text-xs bg-green-500/10 text-green-400 rounded border border-green-500/20">{tool}</span>
@@ -1984,7 +1991,7 @@ export function ConfigTab({
                 )}
                 {toolDeny.length > 0 && (
                   <div>
-                    <span className="text-xs text-red-400 font-medium">Deny ({toolDeny.length}):</span>
+                    <span className="text-xs text-red-400 font-medium">{t('denyCount', { count: toolDeny.length })}:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {toolDeny.map((tool: string) => (
                         <span key={tool} className="px-2 py-0.5 text-xs bg-red-500/10 text-red-400 rounded border border-red-500/20">{tool}</span>
@@ -1993,7 +2000,7 @@ export function ConfigTab({
                   </div>
                 )}
                 {toolAllow.length === 0 && toolDeny.length === 0 && !toolRawPreview && (
-                  <div className="text-xs text-muted-foreground">No tools configured</div>
+                  <div className="text-xs text-muted-foreground">{t('noToolsConfigured')}</div>
                 )}
                 {toolRawPreview && (
                   <pre className="mt-3 text-xs text-muted-foreground bg-surface-1 rounded p-2 overflow-auto whitespace-pre-wrap">
@@ -2006,7 +2013,7 @@ export function ConfigTab({
 
           {/* Subagents */}
           <div className="bg-surface-1/50 rounded-lg p-4">
-            <h5 className="text-sm font-medium text-foreground mb-2">Sub-Agents</h5>
+            <h5 className="text-sm font-medium text-foreground mb-2">{t('subAgents')}</h5>
             {editing ? (
               <div className="space-y-3">
                 <div className="flex flex-wrap gap-1">
@@ -2033,7 +2040,7 @@ export function ConfigTab({
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Add sub-agent name..."
+                    placeholder={t('addSubAgentPlaceholder')}
                     className="flex-1 px-2 py-1 text-xs border border-border rounded bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -2066,11 +2073,11 @@ export function ConfigTab({
                       input.value = ''
                     }}
                   >
-                    Add
+                    {t('add')}
                   </Button>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Sub-agent model override</label>
+                  <label className="text-xs text-muted-foreground">{t('subAgentModelOverride')}</label>
                   <select
                     value={subagents.model || ''}
                     onChange={(e) => {
@@ -2081,7 +2088,7 @@ export function ConfigTab({
                     }}
                     className="w-full mt-1 px-2 py-1 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   >
-                    <option value="">Default (inherit from agent)</option>
+                    <option value="">{t('defaultInheritFromAgent')}</option>
                     {availableModels.map((m) => (
                       <option key={m} value={m}>{m}</option>
                     ))}
@@ -2098,11 +2105,11 @@ export function ConfigTab({
                       ))}
                     </div>
                     {subagents.model && (
-                      <div className="text-xs text-muted-foreground mt-1">Model: {subagents.model}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{t('modelLabel')}: {subagents.model}</div>
                     )}
                   </>
                 ) : (
-                  <div className="text-xs text-muted-foreground">No sub-agents configured. Click Edit to add.</div>
+                  <div className="text-xs text-muted-foreground">{t('noSubAgentsConfigured')}</div>
                 )}
               </>
             )}
@@ -2111,7 +2118,7 @@ export function ConfigTab({
           {/* Memory Search */}
           {memorySearch.sources && (
             <div className="bg-surface-1/50 rounded-lg p-4">
-              <h5 className="text-sm font-medium text-foreground mb-2">Memory Search</h5>
+              <h5 className="text-sm font-medium text-foreground mb-2">{t('memorySearch')}</h5>
               <div className="flex gap-1">
                 {memorySearch.sources.map((s: string) => (
                   <span key={s} className="px-2 py-0.5 text-xs bg-cyan-500/10 text-cyan-400 rounded">{s}</span>
@@ -2126,7 +2133,7 @@ export function ConfigTab({
       {editing && (
         <div className="flex gap-3 pt-2">
           <Button onClick={handleSave} disabled={saving} className="flex-1">
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? t('saving') : t('save')}
           </Button>
           <Button
             onClick={() => {
@@ -2136,7 +2143,7 @@ export function ConfigTab({
             }}
             variant="secondary"
           >
-            Cancel
+            {t('cancel')}
           </Button>
         </div>
       )}
@@ -2153,6 +2160,7 @@ interface FileEntry {
 }
 
 export function FilesTab({ agent }: { agent: Agent }) {
+  const t = useTranslations('agentDetail')
   const [files, setFiles] = useState<FileEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -2232,13 +2240,13 @@ export function FilesTab({ agent }: { agent: Agent }) {
     <div className="p-5 space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h4 className="text-lg font-medium text-foreground">Workspace Files</h4>
+          <h4 className="text-lg font-medium text-foreground">{t('workspaceFiles')}</h4>
           {workspace && (
             <p className="text-xs text-muted-foreground font-mono mt-0.5">{workspace}</p>
           )}
         </div>
         <Button onClick={loadFiles} size="sm" variant="secondary" disabled={loading}>
-          {loading ? '...' : 'Refresh'}
+          {loading ? '...' : t('refresh')}
         </Button>
       </div>
 
@@ -2264,8 +2272,8 @@ export function FilesTab({ agent }: { agent: Agent }) {
               <div className="font-mono text-xs">{file.name}</div>
               <div className="text-2xs mt-0.5">
                 {file.exists
-                  ? `${file.content.length} chars`
-                  : <span className="text-amber-400">missing</span>
+                  ? t('charCount', { count: file.content.length })
+                  : <span className="text-amber-400">{t('missing')}</span>
                 }
               </div>
             </button>
@@ -2276,7 +2284,7 @@ export function FilesTab({ agent }: { agent: Agent }) {
         <div>
           {!activeEntry ? (
             <div className="text-muted-foreground text-sm flex items-center justify-center h-full">
-              Select a file to view or edit
+              {t('selectFile')}
             </div>
           ) : (
             <div className="space-y-3">
@@ -2284,7 +2292,7 @@ export function FilesTab({ agent }: { agent: Agent }) {
                 <div>
                   <span className="font-mono text-sm text-foreground">{activeEntry.name}</span>
                   {!activeEntry.exists && (
-                    <span className="ml-2 px-1.5 py-0.5 text-2xs bg-amber-500/20 text-amber-400 rounded">missing</span>
+                    <span className="ml-2 px-1.5 py-0.5 text-2xs bg-amber-500/20 text-amber-400 rounded">{t('missing')}</span>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -2294,14 +2302,14 @@ export function FilesTab({ agent }: { agent: Agent }) {
                     variant="secondary"
                     disabled={!isDirty}
                   >
-                    Reset
+                    {t('reset')}
                   </Button>
                   <Button
                     onClick={handleSave}
                     size="xs"
                     disabled={saving || !isDirty}
                   >
-                    {saving ? 'Saving...' : 'Save'}
+                    {saving ? t('saving') : t('save')}
                   </Button>
                 </div>
               </div>
@@ -2310,7 +2318,7 @@ export function FilesTab({ agent }: { agent: Agent }) {
                 onChange={(e) => setDraft(e.target.value)}
                 rows={20}
                 className="w-full bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 resize-y"
-                placeholder={activeEntry.exists ? '' : 'File does not exist yet. Enter content and save to create it.'}
+                placeholder={activeEntry.exists ? '' : t('fileNotExistYet')}
               />
             </div>
           )}
@@ -2323,6 +2331,7 @@ export function FilesTab({ agent }: { agent: Agent }) {
 // ===== Tools Tab — Tool allow/deny list management =====
 
 export function ToolsTab({ agent }: { agent: Agent }) {
+  const t = useTranslations('agentDetail')
   const agentConfig = (agent as any).config || {}
   const tools = agentConfig.tools || {}
   const toolAllow = Array.isArray(tools.allow) ? tools.allow : []
@@ -2390,15 +2399,15 @@ export function ToolsTab({ agent }: { agent: Agent }) {
     <div className="p-5 space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h4 className="text-lg font-medium text-foreground">Tool Configuration</h4>
+          <h4 className="text-lg font-medium text-foreground">{t('toolConfiguration')}</h4>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Profile: <span className="font-mono text-foreground">{profile}</span>
+            {t('profileLabel')}: <span className="font-mono text-foreground">{profile}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {success && <span className="text-xs text-green-400">Saved</span>}
+          {success && <span className="text-xs text-green-400">{t('saved')}</span>}
           <Button onClick={handleSave} size="sm" disabled={saving || !isDirty}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? t('saving') : t('save')}
           </Button>
         </div>
       </div>
@@ -2411,7 +2420,7 @@ export function ToolsTab({ agent }: { agent: Agent }) {
 
       {/* Allow list */}
       <div className="bg-surface-1/50 rounded-lg p-4">
-        <h5 className="text-sm font-medium text-green-400 mb-2">Allow List ({allowList.length})</h5>
+        <h5 className="text-sm font-medium text-green-400 mb-2">{t('allowListCount', { count: allowList.length })}</h5>
         <div className="flex flex-wrap gap-1 mb-3">
           {allowList.map((tool, i) => (
             <span key={`${tool}-${i}`} className="px-2 py-0.5 text-xs bg-green-500/10 text-green-400 rounded border border-green-500/20 flex items-center gap-1">
@@ -2419,7 +2428,7 @@ export function ToolsTab({ agent }: { agent: Agent }) {
               <button onClick={() => removeFromList(allowList, setAllowList, i)} className="text-green-400/60 hover:text-green-400 ml-0.5">x</button>
             </span>
           ))}
-          {allowList.length === 0 && <span className="text-xs text-muted-foreground">No explicit allow list (using profile defaults)</span>}
+          {allowList.length === 0 && <span className="text-xs text-muted-foreground">{t('noExplicitAllowList')}</span>}
         </div>
         <div className="flex gap-2">
           <input
@@ -2432,19 +2441,19 @@ export function ToolsTab({ agent }: { agent: Agent }) {
                 setNewAllow('')
               }
             }}
-            placeholder="Add tool to allow list"
+            placeholder={t('addToolToAllowList')}
             className="flex-1 bg-surface-1 text-foreground rounded px-3 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
           <Button onClick={() => { addToList(allowList, setAllowList, newAllow); setNewAllow('') }} variant="secondary" size="xs">
-            Add
+            {t('add')}
           </Button>
         </div>
       </div>
 
       {/* Also-Allow list */}
       <div className="bg-surface-1/50 rounded-lg p-4">
-        <h5 className="text-sm font-medium text-cyan-400 mb-2">Also Allow ({alsoAllowList.length})</h5>
-        <p className="text-2xs text-muted-foreground mb-2">Extra tools allowed on top of the profile defaults.</p>
+        <h5 className="text-sm font-medium text-cyan-400 mb-2">{t('alsoAllowCount', { count: alsoAllowList.length })}</h5>
+        <p className="text-2xs text-muted-foreground mb-2">{t('alsoAllowDesc')}</p>
         <div className="flex flex-wrap gap-1 mb-3">
           {alsoAllowList.map((tool, i) => (
             <span key={`${tool}-${i}`} className="px-2 py-0.5 text-xs bg-cyan-500/10 text-cyan-400 rounded border border-cyan-500/20 flex items-center gap-1">
@@ -2452,13 +2461,13 @@ export function ToolsTab({ agent }: { agent: Agent }) {
               <button onClick={() => removeFromList(alsoAllowList, setAlsoAllowList, i)} className="text-cyan-400/60 hover:text-cyan-400 ml-0.5">x</button>
             </span>
           ))}
-          {alsoAllowList.length === 0 && <span className="text-xs text-muted-foreground">None</span>}
+          {alsoAllowList.length === 0 && <span className="text-xs text-muted-foreground">{t('none')}</span>}
         </div>
       </div>
 
       {/* Deny list */}
       <div className="bg-surface-1/50 rounded-lg p-4">
-        <h5 className="text-sm font-medium text-red-400 mb-2">Deny List ({denyList.length})</h5>
+        <h5 className="text-sm font-medium text-red-400 mb-2">{t('denyListCount', { count: denyList.length })}</h5>
         <div className="flex flex-wrap gap-1 mb-3">
           {denyList.map((tool, i) => (
             <span key={`${tool}-${i}`} className="px-2 py-0.5 text-xs bg-red-500/10 text-red-400 rounded border border-red-500/20 flex items-center gap-1">
@@ -2466,7 +2475,7 @@ export function ToolsTab({ agent }: { agent: Agent }) {
               <button onClick={() => removeFromList(denyList, setDenyList, i)} className="text-red-400/60 hover:text-red-400 ml-0.5">x</button>
             </span>
           ))}
-          {denyList.length === 0 && <span className="text-xs text-muted-foreground">No denied tools</span>}
+          {denyList.length === 0 && <span className="text-xs text-muted-foreground">{t('noDeniedTools')}</span>}
         </div>
         <div className="flex gap-2">
           <input
@@ -2479,11 +2488,11 @@ export function ToolsTab({ agent }: { agent: Agent }) {
                 setNewDeny('')
               }
             }}
-            placeholder="Add tool to deny list"
+            placeholder={t('addToolToDenyList')}
             className="flex-1 bg-surface-1 text-foreground rounded px-3 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
           <Button onClick={() => { addToList(denyList, setDenyList, newDeny); setNewDeny('') }} variant="secondary" size="xs">
-            Add
+            {t('add')}
           </Button>
         </div>
       </div>
@@ -2509,6 +2518,7 @@ interface ChannelEntryInfo {
 }
 
 export function ChannelsTab({ agent }: { agent: Agent }) {
+  const t = useTranslations('agentDetail')
   const [channels, setChannels] = useState<ChannelEntryInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -2563,13 +2573,13 @@ export function ChannelsTab({ agent }: { agent: Agent }) {
     <div className="p-5 space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h4 className="text-lg font-medium text-foreground">Channel Status</h4>
+          <h4 className="text-lg font-medium text-foreground">{t('channelStatus')}</h4>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Gateway-wide channel status snapshot. Agent: <span className="font-mono text-foreground">{agent.name}</span>
+            {t('channelStatusDesc', { agent: agent.name })}
           </p>
         </div>
         <Button onClick={loadChannels} size="sm" variant="secondary" disabled={loading}>
-          {loading ? '...' : 'Refresh'}
+          {loading ? '...' : t('refresh')}
         </Button>
       </div>
 
@@ -2581,7 +2591,7 @@ export function ChannelsTab({ agent }: { agent: Agent }) {
 
       {channels.length === 0 ? (
         <div className="text-muted-foreground text-sm py-8 text-center">
-          No channels found. Load channels to see live status.
+          {t('noChannelsFound')}
         </div>
       ) : (
         <div className="space-y-2">
@@ -2601,9 +2611,9 @@ export function ChannelsTab({ agent }: { agent: Agent }) {
                   <div className="text-xs font-mono text-muted-foreground">{channel.id}</div>
                 </div>
                 <div className="flex gap-3 text-xs text-muted-foreground">
-                  <span>{total > 0 ? `${connected}/${total} connected` : 'no accounts'}</span>
-                  <span>{configured > 0 ? `${configured} configured` : 'not configured'}</span>
-                  <span className={enabled > 0 ? 'text-green-400' : ''}>{total > 0 ? `${enabled} enabled` : 'disabled'}</span>
+                  <span>{total > 0 ? t('connectedOf', { connected, total }) : t('noAccounts')}</span>
+                  <span>{configured > 0 ? t('configuredCount', { count: configured }) : t('notConfigured')}</span>
+                  <span className={enabled > 0 ? 'text-green-400' : ''}>{total > 0 ? t('enabledCount', { count: enabled }) : t('disabled')}</span>
                 </div>
               </div>
             )
@@ -2631,6 +2641,7 @@ interface AgentCronJob {
 }
 
 export function CronTab({ agent }: { agent: Agent }) {
+  const t = useTranslations('agentDetail')
   const [allJobs, setAllJobs] = useState<AgentCronJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -2680,9 +2691,9 @@ export function CronTab({ agent }: { agent: Agent }) {
     <div className="p-5 space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h4 className="text-lg font-medium text-foreground">Cron Jobs</h4>
+          <h4 className="text-lg font-medium text-foreground">{t('cronJobs')}</h4>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {showAll ? 'All' : 'Agent'} cron jobs ({agentJobs.length} of {allJobs.length} total)
+            {showAll ? t('allCronJobsCount', { count: agentJobs.length, total: allJobs.length }) : t('agentCronJobsCount', { count: agentJobs.length, total: allJobs.length })}
           </p>
         </div>
         <div className="flex gap-2">
@@ -2691,10 +2702,10 @@ export function CronTab({ agent }: { agent: Agent }) {
             size="xs"
             variant={showAll ? 'outline' : 'secondary'}
           >
-            {showAll ? 'Agent Only' : 'Show All'}
+            {showAll ? t('agentOnly') : t('showAll')}
           </Button>
           <Button onClick={loadCron} size="sm" variant="secondary" disabled={loading}>
-            {loading ? '...' : 'Refresh'}
+            {loading ? '...' : t('refresh')}
           </Button>
         </div>
       </div>
@@ -2707,7 +2718,7 @@ export function CronTab({ agent }: { agent: Agent }) {
 
       {agentJobs.length === 0 ? (
         <div className="text-muted-foreground text-sm py-8 text-center">
-          No cron jobs {showAll ? 'found' : `assigned to ${agent.name}`}.
+          {showAll ? t('noCronJobsFound') : t('noCronJobsAssigned', { agent: agent.name })}
         </div>
       ) : (
         <div className="space-y-2">
@@ -2721,12 +2732,12 @@ export function CronTab({ agent }: { agent: Agent }) {
                   )}
                   <div className="flex gap-2 mt-2">
                     <span className="px-2 py-0.5 text-xs bg-surface-2 rounded font-mono">
-                      {job.schedule || job.cron || 'no schedule'}
+                      {job.schedule || job.cron || t('noSchedule')}
                     </span>
                     <span className={`px-2 py-0.5 text-xs rounded ${
                       job.enabled ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'
                     }`}>
-                      {job.enabled ? 'enabled' : 'disabled'}
+                      {job.enabled ? t('enabled') : t('disabled')}
                     </span>
                     {job.sessionTarget && (
                       <span className="px-2 py-0.5 text-xs bg-surface-2 rounded text-muted-foreground">
@@ -2741,8 +2752,8 @@ export function CronTab({ agent }: { agent: Agent }) {
                   </div>
                 </div>
                 <div className="text-right text-xs text-muted-foreground space-y-1">
-                  <div>Last: {formatTime(job.lastRun)}</div>
-                  <div>Next: {formatTime(job.nextRun)}</div>
+                  <div>{t('last')}: {formatTime(job.lastRun)}</div>
+                  <div>{t('next')}: {formatTime(job.nextRun)}</div>
                   {job.state && <div className="font-mono">{job.state}</div>}
                 </div>
               </div>
@@ -2757,6 +2768,7 @@ export function CronTab({ agent }: { agent: Agent }) {
 // ===== Models Tab — Model fallback chain =====
 
 export function ModelsTab({ agent }: { agent: Agent }) {
+  const t = useTranslations('agentDetail')
   const agentConfig = (agent as any).config || {}
   const modelCfg = agentConfig.model || {}
   const modelPrimary = typeof modelCfg === 'string' ? modelCfg : (modelCfg.primary || '')
@@ -2792,8 +2804,8 @@ export function ModelsTab({ agent }: { agent: Agent }) {
         body: JSON.stringify({
           gateway_config: {
             model: {
-              primary: primary.trim(),
-              fallbacks: fallbacks.filter(f => f.trim()),
+              primary: (primary || '').trim(),
+              fallbacks: fallbacks.filter(f => f && f.trim()),
             },
           },
           write_to_gateway: true,
@@ -2836,13 +2848,13 @@ export function ModelsTab({ agent }: { agent: Agent }) {
     <div className="p-5 space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h4 className="text-lg font-medium text-foreground">Model Configuration</h4>
-          <p className="text-xs text-muted-foreground mt-0.5">Primary model and fallback chain.</p>
+          <h4 className="text-lg font-medium text-foreground">{t('modelConfiguration')}</h4>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('modelConfigurationDesc')}</p>
         </div>
         <div className="flex items-center gap-2">
-          {success && <span className="text-xs text-green-400">Saved</span>}
+          {success && <span className="text-xs text-green-400">{t('saved')}</span>}
           <Button onClick={handleSave} size="sm" disabled={saving || !isDirty}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? t('saving') : t('save')}
           </Button>
         </div>
       </div>
@@ -2855,13 +2867,13 @@ export function ModelsTab({ agent }: { agent: Agent }) {
 
       {/* Primary model */}
       <div className="bg-surface-1/50 rounded-lg p-4">
-        <h5 className="text-sm font-medium text-foreground mb-2">Primary Model</h5>
+        <h5 className="text-sm font-medium text-foreground mb-2">{t('primaryModel')}</h5>
         <select
           value={primary}
           onChange={(e) => setPrimary(e.target.value)}
           className="w-full bg-surface-1 text-foreground border border-border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
         >
-          <option value="">Default</option>
+          <option value="">{t('default')}</option>
           {availableModels.map(m => (
             <option key={m.alias} value={m.alias}>{m.alias}</option>
           ))}
@@ -2873,13 +2885,13 @@ export function ModelsTab({ agent }: { agent: Agent }) {
 
       {/* Fallback chain */}
       <div className="bg-surface-1/50 rounded-lg p-4">
-        <h5 className="text-sm font-medium text-foreground mb-2">Fallback Chain ({fallbacks.length})</h5>
+        <h5 className="text-sm font-medium text-foreground mb-2">{t('fallbackChainCount', { count: fallbacks.length })}</h5>
         <p className="text-2xs text-muted-foreground mb-3">
-          Models are tried in order when the primary is unavailable.
+          {t('fallbackChainDesc')}
         </p>
 
         {fallbacks.length === 0 ? (
-          <div className="text-xs text-muted-foreground mb-3">No fallback models configured.</div>
+          <div className="text-xs text-muted-foreground mb-3">{t('noFallbackModels')}</div>
         ) : (
           <div className="space-y-1 mb-3">
             {fallbacks.map((fb, i) => (
@@ -2890,7 +2902,7 @@ export function ModelsTab({ agent }: { agent: Agent }) {
                   onClick={() => moveFallback(i, -1)}
                   disabled={i === 0}
                   className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 px-1"
-                  title="Move up"
+                  title={t('moveUp')}
                 >
                   ^
                 </button>
@@ -2898,14 +2910,14 @@ export function ModelsTab({ agent }: { agent: Agent }) {
                   onClick={() => moveFallback(i, 1)}
                   disabled={i === fallbacks.length - 1}
                   className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 px-1"
-                  title="Move down"
+                  title={t('moveDown')}
                 >
                   v
                 </button>
                 <button
                   onClick={() => removeFallback(i)}
                   className="text-xs text-red-400/60 hover:text-red-400 px-1"
-                  title="Remove"
+                  title={t('remove')}
                 >
                   x
                 </button>
@@ -2925,7 +2937,7 @@ export function ModelsTab({ agent }: { agent: Agent }) {
               }
             }}
             list="model-fallback-suggestions"
-            placeholder="Add fallback model"
+            placeholder={t('addFallbackModel')}
             className="flex-1 bg-surface-1 text-foreground rounded px-3 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
           <datalist id="model-fallback-suggestions">
@@ -2934,7 +2946,7 @@ export function ModelsTab({ agent }: { agent: Agent }) {
             ))}
           </datalist>
           <Button onClick={addFallback} variant="secondary" size="xs">
-            Add
+            {t('add')}
           </Button>
         </div>
       </div>

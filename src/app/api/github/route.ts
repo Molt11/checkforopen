@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'repo query parameter required (owner/repo format)' }, { status: 400 })
     }
 
-    const token = getGitHubToken()
+    const token = await getGitHubToken()
     if (!token) {
       return NextResponse.json({ error: 'GITHUB_TOKEN not configured' }, { status: 400 })
     }
@@ -110,7 +110,7 @@ async function handleSync(
     return NextResponse.json({ error: 'repo is required' }, { status: 400 })
   }
 
-  const token = getGitHubToken()
+  const token = await getGitHubToken()
   if (!token) {
     return NextResponse.json({ error: 'GITHUB_TOKEN not configured' }, { status: 400 })
   }
@@ -345,7 +345,7 @@ function handleStatus(workspaceId: number) {
 // ── Stats: GitHub user profile + repo overview ──────────────────
 
 async function handleGitHubStats(repoOverride?: string | null) {
-  const token = getGitHubToken()
+  const token = await getGitHubToken()
   if (!token) {
     return NextResponse.json({ error: 'GITHUB_TOKEN not configured' }, { status: 400 })
   }

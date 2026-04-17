@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, FormEvent } from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { LanguageSwitcherSelect } from '@/components/ui/language-switcher'
 
 interface GoogleCredentialResponse {
   credential?: string
@@ -29,6 +31,7 @@ type LoginRequestBody =
 type LoginErrorPayload = {
   code?: string
   error?: string
+  hint?: string
 }
 
 function readLoginErrorPayload(value: unknown): LoginErrorPayload {
@@ -37,6 +40,7 @@ function readLoginErrorPayload(value: unknown): LoginErrorPayload {
   return {
     code: typeof record.code === 'string' ? record.code : undefined,
     error: typeof record.error === 'string' ? record.error : undefined,
+    hint: typeof record.hint === 'string' ? record.hint : undefined,
   }
 }
 
@@ -58,16 +62,33 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 export default function LoginPage() {
+  const t = useTranslations('auth')
+  const tc = useTranslations('common')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [pendingApproval, setPendingApproval] = useState(false)
+  const [needsSetup, setNeedsSetup] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [googleReady, setGoogleReady] = useState(false)
   const googleCallbackRef = useRef<((response: GoogleCredentialResponse) => void) | null>(null)
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
+
+  // Check if first-time setup is needed on page load — auto-redirect to /setup
+  useEffect(() => {
+    fetch('/api/setup')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.needsSetup) {
+          window.location.href = '/setup'
+        }
+      })
+      .catch(() => {
+        // Ignore — setup check is best-effort
+      })
+  }, [])
 
   const completeLogin = useCallback(async (path: string, body: LoginRequestBody) => {
     const res = await fetch(path, {
@@ -80,13 +101,22 @@ export default function LoginPage() {
       const data = readLoginErrorPayload(await res.json().catch(() => null))
       if (data.code === 'PENDING_APPROVAL') {
         setPendingApproval(true)
+        setNeedsSetup(false)
         setError('')
         setLoading(false)
         setGoogleLoading(false)
         return false
       }
-      setError(data.error || 'Login failed')
+      if (data.code === 'NO_USERS') {
+        setNeedsSetup(true)
+        setError('')
+        setLoading(false)
+        setGoogleLoading(false)
+        return false
+      }
+      setError(data.error || t('loginFailed'))
       setPendingApproval(false)
+      setNeedsSetup(false)
       setLoading(false)
       setGoogleLoading(false)
       return false
@@ -96,7 +126,7 @@ export default function LoginPage() {
     // router.push() + refresh() can race and use stale RSC payloads.
     window.location.href = '/'
     return true
-  }, [])
+  }, [t])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -111,7 +141,7 @@ export default function LoginPage() {
     try {
       await completeLogin('/api/auth/login', { username: formUsername, password: formPassword })
     } catch {
-      setError('Network error')
+      setError(t('networkError'))
       setLoading(false)
     }
   }
@@ -129,7 +159,7 @@ export default function LoginPage() {
           const ok = await completeLogin('/api/auth/google', { credential: response?.credential })
           if (!ok) return
         } catch {
-          setError('Google sign-in failed')
+          setError(t('googleSignInFailed'))
           setGoogleLoading(false)
         }
       }
@@ -152,9 +182,9 @@ export default function LoginPage() {
     script.defer = true
     script.setAttribute('data-google-gsi', '1')
     script.onload = onScriptLoad
-    script.onerror = () => setError('Failed to load Google Sign-In')
+    script.onerror = () => setError(t('googleSignInFailed'))
     document.head.appendChild(script)
-  }, [googleClientId, completeLogin])
+  }, [googleClientId, completeLogin, t])
 
   const handleGoogleSignIn = () => {
     if (!window.google || !googleReady) return
@@ -163,6 +193,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcherSelect />
+      </div>
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <div className="w-12 h-12 rounded-lg overflow-hidden bg-background border border-border/50 flex items-center justify-center mb-3">
@@ -175,8 +208,8 @@ export default function LoginPage() {
               priority
             />
           </div>
-          <h1 className="text-xl font-semibold text-foreground">Mission Control</h1>
-          <p className="text-sm text-muted-foreground mt-1">Sign in to continue</p>
+          <h1 className="text-xl font-semibold text-foreground">{t('missionControl')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t('signInToContinue')}</p>
         </div>
 
         {pendingApproval && (
@@ -187,9 +220,9 @@ export default function LoginPage() {
                 <polyline points="12,6 12,12 16,14" />
               </svg>
             </div>
-            <div className="text-sm font-medium text-amber-200">Access Request Submitted</div>
+            <div className="text-sm font-medium text-amber-200">{t('accessRequestSubmitted')}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Your request has been sent to an administrator for review. You&apos;ll be able to sign in once approved.
+              {t('accessRequestDescription')}
             </p>
             <Button
               onClick={() => { setPendingApproval(false); setError(''); setGoogleLoading(false) }}
@@ -197,7 +230,30 @@ export default function LoginPage() {
               size="sm"
               className="mt-3 text-xs"
             >
-              Try again
+              {t('tryAgain')}
+            </Button>
+          </div>
+        )}
+
+        {needsSetup && (
+          <div className="mb-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
+            <div className="flex justify-center mb-2">
+              <svg className="w-8 h-8 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <div className="text-sm font-medium text-blue-200">{t('noAdminAccount')}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('noAdminDescription')}
+            </p>
+            <Button
+              onClick={() => { window.location.href = '/setup' }}
+              size="sm"
+              className="mt-3"
+            >
+              {t('createAdminAccount')}
             </Button>
           </div>
         )}
@@ -220,23 +276,23 @@ export default function LoginPage() {
               {googleLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                  Signing in...
+                  {t('signingIn')}
                 </>
               ) : (
                 <>
                   <GoogleIcon className="w-[18px] h-[18px]" />
-                  Sign in with Google
+                  {t('signInWithGoogle')}
                 </>
               )}
             </button>
             {!googleReady && (
-              <p className="text-center text-xs text-muted-foreground mt-2">Loading Google Sign-In...</p>
+              <p className="text-center text-xs text-muted-foreground mt-2">{t('loadingGoogleSignIn')}</p>
             )}
 
             {/* Divider */}
             <div className="my-4 flex items-center gap-2">
               <div className="h-px flex-1 bg-border" />
-              <span className="text-xs text-muted-foreground">or</span>
+              <span className="text-xs text-muted-foreground">{tc('or')}</span>
               <div className="h-px flex-1 bg-border" />
             </div>
           </div>
@@ -244,14 +300,14 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className={`space-y-4 ${pendingApproval ? 'opacity-50 pointer-events-none' : ''}`}>
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1.5">Username</label>
+            <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1.5">{t('username')}</label>
             <input
               id="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full h-10 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-smooth"
-              placeholder="Enter username"
+              placeholder={t('enterUsername')}
               autoComplete="username"
               autoFocus
               required
@@ -260,14 +316,14 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">{t('password')}</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full h-10 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-smooth"
-              placeholder="Enter password"
+              placeholder={t('enterPassword')}
               autoComplete="current-password"
               required
               aria-required="true"
@@ -283,15 +339,15 @@ export default function LoginPage() {
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                Signing in...
+                {t('signingIn')}
               </>
             ) : (
-              'Sign in'
+              t('signIn')
             )}
           </Button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">OpenClaw Agent Orchestration</p>
+        <p className="text-center text-xs text-muted-foreground mt-6">{t('orchestrationTagline')}</p>
       </div>
     </div>
   )

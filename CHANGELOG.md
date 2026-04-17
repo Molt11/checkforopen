@@ -2,6 +2,37 @@
 
 All notable changes to Mission Control are documented in this file.
 
+<!-- Maintainer note: add entries under [Unreleased] as PRs merge; bump to a version when releasing. -->
+
+## [Unreleased]
+
+### Fixed
+- SQLite `SQLITE_BUSY` contention — added `busy_timeout` pragma and guarded build-phase eager DB initialisation (#337)
+- Skill registry path traversal and SSRF — extended `SECURITY_RULES` with directory traversal patterns and private-IP/metadata URL detection (#338, #336)
+
+### Tests
+- Vitest coverage threshold enforcement — added coverage for pure utility modules to satisfy the 60% global threshold; threshold now passes in CI (#339)
+
+---
+
+## [2.0.1] - 2026-03-13
+
+### Fixed
+- HTTP and Tailscale login broken by unconditional HTTPS redirect — replaced with opt-in `NEXT_PUBLIC_FORCE_HTTPS=1` (#309)
+- CSP nonce mismatch blocking inline scripts after login — nonce now propagated into SSR request headers (#308, #311)
+- Layout inline theme script missing `nonce` attribute, causing CSP violations on chunk loading (#308, #311)
+- Task dispatch sending agent display name instead of gateway ID — now resolves `openclawId` from config (#310)
+- Session cookie `Secure` flag forced in production even over HTTP — now derived from actual request protocol (#304)
+- Node version check changed from allowlist (22, 24) to floor (>=22) for future compatibility
+
+### Changed
+- CSP generation and browser-security helpers extracted to `src/lib/csp.ts` and `src/lib/browser-security.ts`
+
+### Contributors
+- @0xNyk
+- @polaris-dxz
+- @jaserNo1
+
 ## [2.0.0] - 2026-03-11
 
 ### Added

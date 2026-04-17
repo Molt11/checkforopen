@@ -117,6 +117,16 @@ CREATE TABLE IF NOT EXISTS email_tracking (
     followup_status TEXT DEFAULT 'none' -- none, pending, sent, cancelled
 );
 
+-- Gateway health logs (captured each time MC probes a gateway)
+CREATE TABLE IF NOT EXISTS gateway_health_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    gateway_id INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    latency INTEGER,
+    probed_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    error TEXT
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
@@ -136,5 +146,7 @@ CREATE INDEX IF NOT EXISTS idx_quality_reviews_task_id ON quality_reviews(task_i
 CREATE INDEX IF NOT EXISTS idx_quality_reviews_reviewer ON quality_reviews(reviewer);
 CREATE INDEX IF NOT EXISTS idx_email_tracking_status ON email_tracking(status);
 CREATE INDEX IF NOT EXISTS idx_email_tracking_recipient ON email_tracking(recipient);
+CREATE INDEX IF NOT EXISTS idx_gateway_health_logs_gateway_id ON gateway_health_logs(gateway_id);
+CREATE INDEX IF NOT EXISTS idx_gateway_health_logs_probed_at ON gateway_health_logs(probed_at);
 
 -- Sample data intentionally omitted - seed in dev scripts if needed.

@@ -44,7 +44,7 @@ cd mission-control
 bash install.sh --docker
 ```
 
-The installer auto-generates secure credentials, starts the container, and runs an OpenClaw fleet health check. Open `http://localhost:3000` and log in with the printed credentials.
+The installer auto-generates secure credentials, starts the container, and runs an OpenClaw fleet health check. Open `http://localhost:3000` to create your admin account.
 
 ### One-Command Install (Local)
 
@@ -54,24 +54,78 @@ cd mission-control
 bash install.sh --local
 ```
 
-Requires Node.js 22.x (LTS) and pnpm (auto-installed via corepack if missing).
+Requires Node.js 22.x (LTS, recommended) or 24.x, and pnpm (auto-installed via corepack if missing).
+
+### One-Command Install (Windows PowerShell)
+
+```powershell
+git clone https://github.com/builderz-labs/mission-control.git
+cd mission-control
+.\install.ps1 -Mode local
+```
+
+Or with Docker:
+
+```powershell
+.\install.ps1 -Mode docker
+```
+
+Additional options: `-Port 8080`, `-SkipOpenClaw`. Requires Node.js 22+ and pnpm (auto-installed via corepack if missing).
 
 ### Manual Setup
 
-> **Requires [pnpm](https://pnpm.io/installation)** and **Node.js 22.x (LTS)**.
-> Mission Control is validated against Node 22 across local dev, CI, Docker, and standalone deploys. Use `nvm use 22` (or your version manager equivalent) before installing or starting the app.
+> **Requires [pnpm](https://pnpm.io/installation)** and **Node.js 22.x (LTS, recommended) or 24.x**.
+> Mission Control is validated on Node 22 (primary CI/LTS) and supports Node 24 for local dev and deploys. Use `nvm use 22` (or `nvm use 24`) before installing or starting the app.
 
 ```bash
 git clone https://github.com/builderz-labs/mission-control.git
 cd mission-control
-nvm use 22
+nvm use 22            # or: nvm use 24
 pnpm install
-cp .env.example .env    # edit with your values
-pnpm dev                # http://localhost:3000
+pnpm dev                # http://localhost:3000/setup
 ```
 
-Initial login is seeded from `AUTH_USER` / `AUTH_PASS` on first run.
-If `AUTH_PASS` contains `#`, quote it (e.g. `AUTH_PASS="my#password"`) or use `AUTH_PASS_B64`.
+On first run, visit `http://localhost:3000/setup` to create your admin account. Secrets (`AUTH_SECRET`, `API_KEY`) are auto-generated and persisted to `.data/`.
+
+For CI/automation, set `AUTH_USER` and `AUTH_PASS` env vars to seed the admin from environment instead.
+
+## Gateway Optional Mode (Standalone Deployment)
+
+Mission Control can run in standalone mode without a gateway connection. This is useful when:
+
+- Deploying on a VPS with firewall rules blocking non-standard WebSocket ports (18789/18790)
+- Testing UI/core workflows without a running gateway
+- Running Mission Control primarily for project/task operations
+
+Enable with:
+
+```bash
+NEXT_PUBLIC_GATEWAY_OPTIONAL=true
+```
+
+When enabled, the HUD status shows `Gateway Optional (Standalone)` instead of `Disconnected`.
+
+Works without gateway:
+- Task board, projects, agents, sessions, scheduler, webhooks, alerts, activity/audit, cost tracking
+
+Requires active gateway:
+- Real-time session updates
+- Agent-to-agent messaging
+- Gateway log streaming
+
+For production VPS setups, you can also proxy gateway WebSockets over 443. See `docs/deployment.md`.
+
+### Docker Zero-Config
+
+```bash
+docker compose up
+```
+
+No `.env` file needed. The container auto-generates `AUTH_SECRET` and `API_KEY` on first boot and persists them across restarts. Visit `http://localhost:3000` to create your admin account.
+
+Release automation publishes multi-arch images to:
+- `ghcr.io/builderz-labs/mission-control`
+- `docker.io/builderz-labs/mission-control` when `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured in GitHub Actions secrets
 
 ### Docker Hardening (Production)
 
@@ -130,7 +184,7 @@ bash scripts/security-audit.sh
 
 ### Known Limitations
 
-- **CSP still includes `unsafe-inline`** — `unsafe-eval` has been removed, but inline styles remain for framework compatibility
+- No major security limitations currently tracked here for CSP; policy now uses per-request nonces (no `unsafe-inline` / `unsafe-eval`).
 
 ### Security Considerations
 
@@ -282,7 +336,7 @@ Three auth methods, three roles:
 
 | Method | Details |
 |--------|----------|
-| Session cookie | `POST /api/auth/login` sets `mc-session` (7-day expiry) |
+| Session cookie | `POST /api/auth/login` sets `__Host-mc-session` (7-day expiry) for HTTPS, `mc-session` for HTTP |
 | API key | `x-api-key` header matches `API_KEY` env var |
 | Google Sign-In | OAuth with admin approval workflow |
 

@@ -1,25 +1,35 @@
 import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies'
 
-// TODO: Migrate cookie name to use __Host- prefix for secure contexts.
-// The __Host- prefix enforces Secure + Path=/ and prevents subdomain attacks.
-// Migration path: add MC_SESSION_COOKIE_NAME usage to all callers
-// (proxy.ts, auth/login, auth/logout, auth/google, lib/auth.ts, tests)
-// then switch the default to use __Host- prefix when secure=true.
-const defaultCookieName = 'mc-session'
+export const MC_SESSION_COOKIE_NAME = '__Host-mc-session'
+export const LEGACY_MC_SESSION_COOKIE_NAME = 'mc-session'
+const MC_SESSION_COOKIE_NAMES = [MC_SESSION_COOKIE_NAME, LEGACY_MC_SESSION_COOKIE_NAME] as const
 
-export function getMcSessionCookieName(secure: boolean = false): string {
+export function getMcSessionCookieName(isSecureRequest: boolean): string {
   const envName = (process.env.MC_SESSION_COOKIE_NAME || '').trim()
   if (envName) return envName
 
-  // TODO: Enable __Host- prefix once all callers use this function.
-  // When enabled: return secure ? '__Host-mc-session' : defaultCookieName
-  void secure
-  return defaultCookieName
+  return isSecureRequest ? MC_SESSION_COOKIE_NAME : LEGACY_MC_SESSION_COOKIE_NAME
+}
+
+export function isRequestSecure(request: Request): boolean {
+  return request.headers.get('x-forwarded-proto') === 'https'
+    || new URL(request.url).protocol === 'https:'
+}
+
+export function parseMcSessionCookieHeader(cookieHeader: string): string | null {
+  if (!cookieHeader) return null
+  for (const cookieName of MC_SESSION_COOKIE_NAMES) {
+    const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${cookieName}=([^;]*)`))
+    if (match) {
+      return decodeURIComponent(match[1])
+    }
+  }
+  return null
 }
 
 // Deprecated: use getMcSessionCookieName() instead.
 // Kept as a fallback for legacy code paths that haven't been migrated.
-export const MC_SESSION_COOKIE_NAME = defaultCookieName
+export const MC_SESSION_COOKIE_NAME_LEGACY = LEGACY_MC_SESSION_COOKIE_NAME
 
 function envFlag(name: string): boolean | undefined {
   const raw = process.env[name]
@@ -51,4 +61,3 @@ export function getMcSessionCookieOptions(input: { maxAgeSeconds: number; isSecu
     path: '/',
   }
 }
-
