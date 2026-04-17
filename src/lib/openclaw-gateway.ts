@@ -89,31 +89,50 @@ export async function callGatewayRpc<T = unknown>(
   }
   
   const url = new URL(baseUrl)
-  url.pathname = '/api/rpc'
+  const originalPath = url.pathname
   
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-  
-  try {
-    const response = await fetch(url.toString(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        method,
-        params,
-      }),
-      signal: controller.signal
-    })
+  // Try /api/rpc first (legacy/standard), then /rpc as fallback
+  const endpoints = ['/api/rpc', '/rpc']
+  let lastError: Error | null = null
+
+  for (const endpoint of endpoints) {
+    url.pathname = originalPath === '/' ? endpoint : `${originalPath.replace(/\/$/, '')}${endpoint}`
     
-    if (!response.ok) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+    
+    try {
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          method,
+          params,
+        }),
+        signal: controller.signal
+      })
+      
+      if (response.ok) {
+        return await response.json() as T
+      }
+      
+      // If we got a 404, try the next endpoint
+      if (response.status === 404) {
+        lastError = new Error(`Gateway RPC ${method} failed with HTTP 404 at ${endpoint}`)
+        continue
+      }
+
       throw new Error(`Gateway RPC ${method} failed with HTTP ${response.status}`)
+    } catch (err: any) {
+      if (err.name === 'AbortError') throw new Error(`Gateway RPC ${method} timed out after ${timeoutMs}ms`)
+      lastError = err
+    } finally {
+      clearTimeout(timeout)
     }
-    
-    return await response.json() as T
-  } finally {
-    clearTimeout(timeout)
   }
+
+  throw lastError || new Error(`Gateway RPC ${method} failed at all endpoints`)
 }
