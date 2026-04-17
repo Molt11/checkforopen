@@ -44,7 +44,10 @@ COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy schema.sql needed by migration 001_init at runtime
 COPY --from=build --chown=nextjs:nodejs /app/src/lib/schema.sql ./src/lib/schema.sql
 COPY --from=build --chown=nextjs:nodejs /app/scripts ./scripts
-RUN chmod +x /app/scripts/prod-entrypoint.sh
+# Ensure openclaw binary is available in runtime
+COPY --from=build --chown=nextjs:nodejs /app/node_modules/openclaw ./node_modules/openclaw
+COPY --from=build --chown=nextjs:nodejs /app/node_modules/.bin/openclaw ./node_modules/.bin/openclaw
+RUN chmod +x /app/scripts/prod-entrypoint.sh /app/node_modules/.bin/openclaw
 # Create data directory with correct ownership for SQLite
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 # Create cache directory with correct ownership for Next.js ISR
