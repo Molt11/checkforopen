@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
           )
         }
         
-        const remoteAgents = (data?.agents || []).map(ra => ({
+        const remoteAgents = (data?.agents || []).map((ra: any) => ({
           id: `remote-${gw.id}-${ra.id}`,
           name: ra.name || ra.id,
           role: ra.role || ra.type || 'agent',
