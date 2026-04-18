@@ -1,4 +1,5 @@
 #!/bin/sh
+# Speed up startup and resolve gateway connectivity issues
 set -e
 
 # --- Source .env if present ---
@@ -47,107 +48,90 @@ fi
 
 # Ensure data directory exists
 mkdir -p /app/data/db
+chown -R nextjs:nodejs /app/data 2>/dev/null || true
 
 # Setup OpenClaw environment
 export OPENCLAW_HOME=/app/data/openclaw
 export OPENCLAW_CONFIG_PATH=/app/data/openclaw/openclaw.json
 export OPENCLAW_NO_RESPAWN=1
 export NODE_COMPILE_CACHE=/app/data/openclaw-compile-cache
-mkdir -p $OPENCLAW_HOME
-mkdir -p $NODE_COMPILE_CACHE
+mkdir -p "$OPENCLAW_HOME"
+mkdir -p "$NODE_COMPILE_CACHE"
 
-# Inject gateway token for CLI if provided
-if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
-    export GATEWAY_TOKEN="$OPENCLAW_GATEWAY_TOKEN"
-fi
+# Pre-emptively create core directories to resolve doctor warnings
+mkdir -p "$OPENCLAW_HOME/agents/main/sessions"
+mkdir -p "$OPENCLAW_HOME/logs"
+mkdir -p "$OPENCLAW_HOME/.openclaw/agents/main/sessions" 2>/dev/null || true
 
 # Find openclaw binary
 if [ -n "$OPENCLAW_BIN" ] && command -v "$OPENCLAW_BIN" >/dev/null 2>&1; then
     OC_BIN=$(command -v "$OPENCLAW_BIN")
 elif [ -f "/app/node_modules/.bin/openclaw" ]; then
     OC_BIN="/app/node_modules/.bin/openclaw"
-elif [ -f "/usr/local/bin/openclaw" ]; then
-    OC_BIN="/usr/local/bin/openclaw"
-elif [ -f "/usr/bin/openclaw" ]; then
-    OC_BIN="/usr/bin/openclaw"
-elif command -v openclaw >/dev/null 2>&1; then
-    OC_BIN=$(command -v openclaw)
 else
-    OC_BIN=""
+    OC_BIN=$(command -v openclaw 2>/dev/null || echo "")
 fi
 
 if [ -n "$OC_BIN" ]; then
-    echo "[entrypoint] Found openclaw binary at: $OC_BIN"
-    $OC_BIN --version || true
-else
-    echo "[entrypoint] WARNING: openclaw binary not found in PATH or standard locations"
-fi
-
-# Initialize config if it doesn't exist
-if [ ! -f "$OPENCLAW_CONFIG_PATH" ]; then
-    echo "Initializing OpenClaw configuration..."
-    if [ -n "$OPENCLAW_GATEWAY_URL" ] && [ "$OPENCLAW_GATEWAY_URL" != "http://127.0.0.1:18789" ]; then
-        echo '{"agents":{"list":[]},"gateway":{"mode":"remote","host":"'"$OPENCLAW_GATEWAY_URL"'"}}' > "$OPENCLAW_CONFIG_PATH"
-        echo "Created remote-mode skeleton configuration"
-    elif [ -n "$OC_BIN" ]; then
-        # Try a single fast initialization command first
-        if $OC_BIN config init --non-interactive --timeout 5000 2>/dev/null; then
-            echo "Successfully initialized config via 'config init'"
-        else
-            echo "Fast init failed. Creating skeleton configuration..."
-            echo '{"agents":{"list":[]},"gateway":{"mode":"local"}}' > "$OPENCLAW_CONFIG_PATH"
-        fi
-    else
-        echo '{"agents":{"list":[]},"gateway":{"mode":"local"}}' > "$OPENCLAW_CONFIG_PATH"
+    printf "[entrypoint] Found openclaw binary at: %s\n" "$OC_BIN"
+    # Inject gateway token for CLI if provided
+    if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
+        export GATEWAY_TOKEN="$OPENCLAW_GATEWAY_TOKEN"
     fi
 fi
 
-# Update config for Remote/Hybrid mode if URL is set (Non-blocking)
+# --- Fast Config Initialization ---
+# We write the config file directly if it's missing or if we're in remote mode
+# to avoid slow CLI calls during the critical health-check startup window.
 if [ -n "$OPENCLAW_GATEWAY_URL" ] && [ "$OPENCLAW_GATEWAY_URL" != "http://127.0.0.1:18789" ]; then
-    echo "Hybrid Mode: Connecting to remote gateway at $OPENCLAW_GATEWAY_URL"
+    printf "[entrypoint] Configuring Hybrid Mode (Remote Gateway: %s)\n" "$OPENCLAW_GATEWAY_URL"
+    
+    # Write config directly - avoid 'config init' or 'config set' overhead
+    cat <<EOF > "$OPENCLAW_CONFIG_PATH"
+{
+  "agents": { "list": [] },
+  "gateway": {
+    "mode": "remote",
+    "host": "$OPENCLAW_GATEWAY_URL",
+    "auth": {
+      "mode": "token",
+      "token": "$OPENCLAW_GATEWAY_TOKEN"
+    }
+  }
+}
+EOF
+    chmod 600 "$OPENCLAW_CONFIG_PATH"
+
     if [ -n "$OC_BIN" ]; then
-        # Run these in background or with very short timeouts to avoid blocking server start
-        $OC_BIN config set gateway.mode remote --timeout 2000 2>/dev/null || true
-        $OC_BIN config set gateway.host "$OPENCLAW_GATEWAY_URL" --timeout 2000 2>/dev/null || true
-        
-        if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
-            echo "Injecting gateway token..."
-            $OC_BIN config set gateway.auth.token "$OPENCLAW_GATEWAY_TOKEN" --timeout 2000 2>/dev/null || true
-            $OC_BIN config set gateway.auth.mode token --timeout 2000 2>/dev/null || true
-            # Attempt a quick pair if token provided
-            $OC_BIN gateway pair "$OPENCLAW_GATEWAY_TOKEN" --timeout 5000 2>/dev/null || true
-            # Run doctor fix once if token provided, but don't block server start
-            $OC_BIN doctor --fix --timeout 10000 2>/dev/null &
-        fi
+        # Run doctor fix in background so it doesn't block server start
+        printf "[entrypoint] Starting background doctor fix...\n"
+        $OC_BIN doctor --fix --timeout 30000 >/app/data/doctor-fix.log 2>&1 &
     fi
 else
+    if [ ! -f "$OPENCLAW_CONFIG_PATH" ]; then
+        printf "[entrypoint] Initializing local skeleton configuration\n"
+        echo '{"agents":{"list":[]},"gateway":{"mode":"local"}}' > "$OPENCLAW_CONFIG_PATH"
+        chmod 600 "$OPENCLAW_CONFIG_PATH"
+    fi
+    
     if [ -n "$OC_BIN" ]; then
-        echo "Starting OpenClaw Gateway..."
-        # Start the gateway in the background
-        $OC_BIN gateway start --port 18789 &
-    else
-        echo "Warning: No remote OPENCLAW_GATEWAY_URL set and OpenClaw binary not found"
+        printf "[entrypoint] Starting local OpenClaw Gateway...\n"
+        $OC_BIN gateway start --port 18789 >/app/data/gateway.log 2>&1 &
     fi
 fi
 
-echo "[entrypoint] Starting Mission Control Server on PORT=${PORT:-3000}..."
-echo "[entrypoint] Current user: $(id -u -n)"
-echo "[entrypoint] Working directory: $(pwd)"
+# --- Start Mission Control Server ---
+printf "[entrypoint] Starting Mission Control Server on PORT=%s...\n" "${PORT:-3000}"
 
-# Final permission fix for the data directory
-if [ -d "/app/data" ]; then
-    echo "[entrypoint] Verifying /app/data permissions..."
-fi
-
-# Start the Next.js standalone server
 if [ -f "server.js" ]; then
-    # Ensure node_modules exists (even as a symlink or empty dir)
+    # Final check: is node_modules there? (Next.js standalone needs it)
     if [ ! -d "node_modules" ]; then
-        echo "[entrypoint] WARNING: node_modules not found in $(pwd), server might fail"
+        printf "[entrypoint] WARNING: node_modules not found, attempting to use /app/node_modules\n"
+        export NODE_PATH=/app/node_modules
     fi
     exec node server.js
 else
-    echo "[entrypoint] ERROR: server.js not found in $(pwd)"
+    printf "[entrypoint] ERROR: server.js not found in %s\n" "$(pwd)"
     ls -la
     exit 1
 fi

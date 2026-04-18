@@ -14,6 +14,16 @@ import { detectProviderSubscriptions, getPrimarySubscription } from '@/lib/provi
 import { APP_VERSION } from '@/lib/version'
 import { isHermesInstalled, scanHermesSessions } from '@/lib/hermes-sessions'
 import { registerMcAsDashboard, getDetectedGatewayToken } from '@/lib/gateway-runtime'
+import { callGatewayRpc } from '@/lib/openclaw-gateway'
+
+async function getAllGatewaysSummary() {
+  try {
+    const db = getDatabase()
+    return db.prepare("SELECT host, port, token FROM gateways").all() as { host: string, port: number, token: string }[]
+  } catch {
+    return []
+  }
+}
 
 export async function GET(request: NextRequest) {
   // Docker/Kubernetes health probes must work without auth/cookies.
@@ -335,9 +345,48 @@ async function getSystemStatus(workspaceId: number) {
   try {
     // Read sessions directly from agent session stores on disk
     const gatewaySessions = getAllGatewaySessions()
+    const localTotal = gatewaySessions.length
+    const localActive = gatewaySessions.filter((s) => s.active).length
+
+    // Discover sessions from other gateways
+    const gateways = await getAllGatewaysSummary()
+    let remoteTotal = 0
+    let remoteActive = 0
+
+    await Promise.all(gateways.map(async (gw) => {
+      // Skip local
+      if (gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === config.gatewayHost) return
+
+      try {
+        let data: any
+        try {
+          data = await callGatewayRpc<{ sessions?: any[] }>(
+            { host: gw.host, port: gw.port, token: gw.token },
+            'session.list',
+            {},
+            5000
+          )
+        } catch {
+          data = await callGatewayRpc<{ sessions?: any[] }>(
+            { host: gw.host, port: gw.port, token: gw.token },
+            'session_list',
+            {},
+            5000
+          )
+        }
+        
+        if (data?.sessions) {
+          remoteTotal += data.sessions.length
+          remoteActive += data.sessions.filter((s: any) => s.active).length
+        }
+      } catch (err) {
+        // ignore
+      }
+    }))
+
     status.sessions = {
-      total: gatewaySessions.length,
-      active: gatewaySessions.filter((s) => s.active).length,
+      total: localTotal + remoteTotal,
+      active: localActive + remoteActive,
     }
 
     // Sync agent statuses in DB from live session data
@@ -752,7 +801,9 @@ async function isGatewayAlive(url: string): Promise<boolean> {
 
   try {
     const token = getDetectedGatewayToken()
-    const headers: Record<string, string> = {}
+    const headers: Record<string, string> = {
+      'ngrok-skip-browser-warning': 'true'
+    }
     if (token) headers['Authorization'] = `Bearer ${token}`
 
     const controller = new AbortController()

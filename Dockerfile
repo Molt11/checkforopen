@@ -12,7 +12,10 @@ COPY scripts ./scripts
 RUN pnpm config set supportedArchitectures --json '{"os": ["linux"], "cpu": ["x64", "arm64"]}'
 # better-sqlite3 requires native compilation tools
 RUN apt-get update && apt-get install -y python3 make g++ git ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
-RUN pnpm install --no-frozen-lockfile && pnpm add openclaw@latest
+RUN pnpm install --no-frozen-lockfile && \
+    pnpm add openclaw@latest && \
+    # Pre-install common openclaw runtime dependencies to satisfy the doctor
+    pnpm add @aws-sdk/client-bedrock @google/genai @slack/bolt @azure/identity @buape/carbon discord.js @discordjs/voice @grammyjs/runner zod openai playwright-core
 
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules

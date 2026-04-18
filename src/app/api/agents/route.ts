@@ -87,12 +87,23 @@ export async function GET(request: NextRequest) {
       if (gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === appConfig.gatewayHost) return
 
       try {
-        const data = await callGatewayRpc<{ agents?: any[] }>(
-          { host: gw.host, port: gw.port, token: gw.token },
-          'agent.list',
-          {},
-          20000
-        )
+        let data: any
+        try {
+          data = await callGatewayRpc<{ agents?: any[] }>(
+            { host: gw.host, port: gw.port, token: gw.token },
+            'agent.list',
+            {},
+            20000
+          )
+        } catch {
+          data = await callGatewayRpc<{ agents?: any[] }>(
+            { host: gw.host, port: gw.port, token: gw.token },
+            'agent_list',
+            {},
+            20000
+          )
+        }
+        
         const remoteAgents = (data?.agents || []).map(ra => ({
           id: `remote-${gw.id}-${ra.id}`,
           name: ra.name || ra.id,
