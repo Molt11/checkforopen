@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await runOpenClaw(['doctor'], { timeoutMs: 15000 })
+    const result = await runOpenClaw(['doctor'], { timeoutMs: 30000 })
     return NextResponse.json(parseOpenClawDoctorOutput(`${result.stdout}\n${result.stderr}`, result.code ?? 0, {
       stateDir: config.openclawStateDir,
     }), {

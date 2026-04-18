@@ -51,7 +51,15 @@ mkdir -p /app/data/db
 # Setup OpenClaw environment
 export OPENCLAW_HOME=/app/data/openclaw
 export OPENCLAW_CONFIG_PATH=/app/data/openclaw/openclaw.json
+export OPENCLAW_NO_RESPAWN=1
+export NODE_COMPILE_CACHE=/app/data/openclaw-compile-cache
 mkdir -p $OPENCLAW_HOME
+mkdir -p $NODE_COMPILE_CACHE
+
+# Inject gateway token for CLI if provided
+if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
+    export GATEWAY_TOKEN="$OPENCLAW_GATEWAY_TOKEN"
+fi
 
 # Find openclaw binary
 if [ -n "$OPENCLAW_BIN" ] && command -v "$OPENCLAW_BIN" >/dev/null 2>&1; then
@@ -92,17 +100,25 @@ if [ ! -f "$OPENCLAW_CONFIG_PATH" ]; then
             echo "Successfully initialized config via 'init'"
         else
             echo "Warning: All initialization commands failed. Creating skeleton configuration..."
-            echo '{"agents":{"list":[]}}' > "$OPENCLAW_CONFIG_PATH"
+            echo '{"agents":{"list":[]},"gateway":{"mode":"local"}}' > "$OPENCLAW_CONFIG_PATH"
         fi
     else
         echo "Warning: openclaw binary not found. Creating skeleton configuration..."
-        echo '{"agents":{"list":[]}}' > "$OPENCLAW_CONFIG_PATH"
+        echo '{"agents":{"list":[]},"gateway":{"mode":"local"}}' > "$OPENCLAW_CONFIG_PATH"
     fi
 fi
 
-# Check if we are running in Hybrid/Remote mode
+# Update config for Remote/Hybrid mode if URL is set
 if [ -n "$OPENCLAW_GATEWAY_URL" ] && [ "$OPENCLAW_GATEWAY_URL" != "http://127.0.0.1:18789" ]; then
     echo "Hybrid Mode: Connecting to remote gateway at $OPENCLAW_GATEWAY_URL"
+    if [ -n "$OC_BIN" ]; then
+        # Use CLI to set values if possible, otherwise we'd need jq
+        $OC_BIN config set gateway.mode remote 2>/dev/null || true
+        $OC_BIN config set gateway.host "$OPENCLAW_GATEWAY_URL" 2>/dev/null || true
+        if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
+            $OC_BIN config set gateway.auth.token "$OPENCLAW_GATEWAY_TOKEN" 2>/dev/null || true
+        fi
+    fi
 else
     if [ -n "$OC_BIN" ]; then
         echo "Starting OpenClaw Gateway..."
