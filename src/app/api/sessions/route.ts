@@ -50,22 +50,26 @@ export async function GET(request: NextRequest) {
         } else {
           // Attempt RPC for remote gateways
           try {
-            const data = await callGatewayRpc<{ sessions?: any[] }>(
-              { host: gw.host, port: gw.port, token: gw.token },
-              'session.list',
-              {},
-              20000
-            )
+            let data: any
+            try {
+              data = await callGatewayRpc<{ sessions?: any[] }>(
+                { host: gw.host, port: gw.port, token: gw.token },
+                'session.list',
+                {},
+                20000
+              )
+            } catch (err) {
+              // Try legacy session_list if session.list fails
+              data = await callGatewayRpc<{ sessions?: any[] }>(
+                { host: gw.host, port: gw.port, token: gw.token },
+                'session_list',
+                {},
+                20000
+              )
+            }
             sessions = data?.sessions || []
           } catch (err) {
-            // Try legacy session_list if session.list fails
-            const data = await callGatewayRpc<{ sessions?: any[] }>(
-              { host: gw.host, port: gw.port, token: gw.token },
-              'session_list',
-              {},
-              20000
-            )
-            sessions = data?.sessions || []
+            logger.warn({ err, gateway: gw.name }, 'Failed to fetch sessions from gateway')
           }
         }
 

@@ -40,14 +40,26 @@ export async function GET(request: NextRequest) {
     await Promise.all(
       gateways.map(async (gw) => {
         try {
-          const data = await callGatewayRpc<{ nodes?: any[] }>(
-            { host: gw.host, port: gw.port, token: gw.token },
-            'node.list',
-            {},
-            GATEWAY_TIMEOUT
-          )
+          let data: any
+          try {
+            data = await callGatewayRpc<{ nodes?: any[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'node.list',
+              {},
+              GATEWAY_TIMEOUT
+            )
+          } catch (err) {
+            // Fallback for older gateways
+            data = await callGatewayRpc<{ nodes?: any[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'node_list',
+              {},
+              GATEWAY_TIMEOUT
+            )
+          }
+
           if (data?.nodes) {
-            allNodes.push(...data.nodes.map(n => ({ ...n, gateway_name: gw.name })))
+            allNodes.push(...data.nodes.map((n: any) => ({ ...n, gateway_name: gw.name })))
           }
           anyConnected = true
         } catch (err) {
@@ -65,14 +77,25 @@ export async function GET(request: NextRequest) {
     await Promise.all(
       gateways.map(async (gw) => {
         try {
-          const data = await callGatewayRpc<{ devices?: any[] }>(
-            { host: gw.host, port: gw.port, token: gw.token },
-            'device.pair.list',
-            {},
-            GATEWAY_TIMEOUT
-          )
+          let data: any
+          try {
+            data = await callGatewayRpc<{ devices?: any[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'device.pair.list',
+              {},
+              GATEWAY_TIMEOUT
+            )
+          } catch (err) {
+            data = await callGatewayRpc<{ devices?: any[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'device_pair_list',
+              {},
+              GATEWAY_TIMEOUT
+            )
+          }
+
           if (data?.devices) {
-            allDevices.push(...data.devices.map(d => ({ ...d, gateway_name: gw.name })))
+            allDevices.push(...data.devices.map((d: any) => ({ ...d, gateway_name: gw.name })))
           }
         } catch (err) {
           logger.warn({ err, gateway: gw.name }, 'Failed to fetch devices from gateway')

@@ -186,12 +186,9 @@ function seedGatewayFromEnv(dbConn: Database.Database): void {
   // Skip during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') return
 
-  // Check if any gateways exist
-  const count = (dbConn.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='gateways'").get() as CountRow).count
-  if (count === 0) return // Table not created yet (though migration should have created it)
-
-  const gwCount = (dbConn.prepare('SELECT COUNT(*) as count FROM gateways').get() as CountRow).count
-  if (gwCount > 0) return
+  // Check if gateways table exists
+  const tableExists = (dbConn.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='gateways'").get() as CountRow).count
+  if (tableExists === 0) return
 
   const name = String(process.env.MC_DEFAULT_GATEWAY_NAME || 'primary')
   let host = config.gatewayHost
@@ -208,6 +205,26 @@ function seedGatewayFromEnv(dbConn: Database.Database): void {
   }
 
   const token = getDetectedGatewayToken()
+
+  // Check if gateway exists
+  const existing = dbConn.prepare('SELECT id, host, port, token FROM gateways WHERE name = ?').get(name) as { id: number, host: string, port: number, token: string } | undefined
+
+  if (existing) {
+    // Sync if changed
+    if (existing.host !== host || existing.port !== port || existing.token !== token) {
+      try {
+        dbConn.prepare(`
+          UPDATE gateways 
+          SET host = ?, port = ?, token = ?, status = 'online'
+          WHERE id = ?
+        `).run(host, port, token, existing.id)
+        logger.info({ name, host, port }, 'Updated primary gateway from environment')
+      } catch (err) {
+        logger.error({ err }, 'Failed to update primary gateway from environment')
+      }
+    }
+    return
+  }
 
   try {
     dbConn.prepare(`

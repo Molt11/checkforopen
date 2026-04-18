@@ -1,4 +1,5 @@
 import { runOpenClaw } from './command'
+import { logger } from './logger'
 
 export function parseGatewayJsonOutput(raw: string): unknown | null {
   const trimmed = String(raw || '').trim()
@@ -117,18 +118,31 @@ export async function callGatewayRpc<T = unknown>(
       })
       
       if (response.ok) {
-        return await response.json() as T
+        const data = await response.json() as T
+        return data
       }
       
+      const errorText = await response.text().catch(() => 'No error body')
+      logger.warn({ 
+        url: url.toString(), 
+        method, 
+        status: response.status, 
+        errorText 
+      }, 'Gateway RPC call failed')
+
       // If we got a 404, try the next endpoint
       if (response.status === 404) {
         lastError = new Error(`Gateway RPC ${method} failed with HTTP 404 at ${endpoint}`)
         continue
       }
 
-      throw new Error(`Gateway RPC ${method} failed with HTTP ${response.status}`)
+      throw new Error(`Gateway RPC ${method} failed with HTTP ${response.status}: ${errorText.slice(0, 100)}`)
     } catch (err: any) {
-      if (err.name === 'AbortError') throw new Error(`Gateway RPC ${method} timed out after ${timeoutMs}ms`)
+      if (err.name === 'AbortError') {
+        logger.error({ url: url.toString(), method, timeoutMs }, 'Gateway RPC timed out')
+        throw new Error(`Gateway RPC ${method} timed out after ${timeoutMs}ms`)
+      }
+      logger.error({ url: url.toString(), method, err: err.message }, 'Gateway RPC network error')
       lastError = err
     } finally {
       clearTimeout(timeout)

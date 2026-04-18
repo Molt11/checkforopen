@@ -109,8 +109,15 @@ if [ -n "$OPENCLAW_GATEWAY_URL" ] && [ "$OPENCLAW_GATEWAY_URL" != "http://127.0.
         # Run these in background or with very short timeouts to avoid blocking server start
         $OC_BIN config set gateway.mode remote --timeout 2000 2>/dev/null || true
         $OC_BIN config set gateway.host "$OPENCLAW_GATEWAY_URL" --timeout 2000 2>/dev/null || true
+        
         if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
+            echo "Injecting gateway token..."
             $OC_BIN config set gateway.auth.token "$OPENCLAW_GATEWAY_TOKEN" --timeout 2000 2>/dev/null || true
+            $OC_BIN config set gateway.auth.mode token --timeout 2000 2>/dev/null || true
+            # Attempt a quick pair if token provided
+            $OC_BIN gateway pair "$OPENCLAW_GATEWAY_TOKEN" --timeout 5000 2>/dev/null || true
+            # Run doctor fix once if token provided, but don't block server start
+            $OC_BIN doctor --fix --timeout 10000 2>/dev/null &
         fi
     fi
 else

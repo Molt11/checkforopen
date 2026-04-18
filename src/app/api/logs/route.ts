@@ -230,12 +230,23 @@ export async function GET(request: NextRequest) {
         if (gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === config.gatewayHost) return
 
         try {
-          const data = await callGatewayRpc<{ logs?: any[] }>(
-            { host: gw.host, port: gw.port, token: gw.token },
-            'log.list',
-            { limit: 200, source, level, session, search },
-            20000
-          )
+          let data: any
+          try {
+            data = await callGatewayRpc<{ logs?: any[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'log.list',
+              { limit: 200, source, level, session, search },
+              20000
+            )
+          } catch (err) {
+            data = await callGatewayRpc<{ logs?: any[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'log_list',
+              { limit: 200, source, level, session, search },
+              20000
+            )
+          }
+
           const remoteLogs = (data?.logs || []).map((l: any) => ({
             ...l,
             id: `remote-${gw.id}-${l.id || Math.random()}`,
@@ -279,14 +290,25 @@ export async function GET(request: NextRequest) {
       await Promise.all(gateways.map(async (gw) => {
         if (gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === config.gatewayHost) return
         try {
-          const data = await callGatewayRpc<{ sources?: string[] }>(
-            { host: gw.host, port: gw.port, token: gw.token },
-            'log.sources',
-            {},
-            20000
-          )
+          let data: any
+          try {
+            data = await callGatewayRpc<{ sources?: string[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'log.sources',
+              {},
+              20000
+            )
+          } catch (err) {
+            data = await callGatewayRpc<{ sources?: string[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'log_sources',
+              {},
+              20000
+            )
+          }
+
           if (data?.sources) {
-            data.sources.forEach(s => allSources.add(`${gw.name}/${s}`))
+            data.sources.forEach((s: any) => allSources.add(`${gw.name}/${s}`))
           }
         } catch {}
       }))
@@ -310,12 +332,23 @@ export async function GET(request: NextRequest) {
       await Promise.all(gateways.map(async (gw) => {
         if (gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === config.gatewayHost) return
         try {
-          const data = await callGatewayRpc<{ logs?: any[] }>(
-            { host: gw.host, port: gw.port, token: gw.token },
-            'log.tail',
-            { since: sinceTimestamp, source, limit: 50 },
-            20000
-          )
+          let data: any
+          try {
+            data = await callGatewayRpc<{ logs?: any[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'log.tail',
+              { since: sinceTimestamp, source, limit: 50 },
+              20000
+            )
+          } catch (err) {
+            data = await callGatewayRpc<{ logs?: any[] }>(
+              { host: gw.host, port: gw.port, token: gw.token },
+              'log_tail',
+              { since: sinceTimestamp, source, limit: 50 },
+              20000
+            )
+          }
+
           const remoteLogs = (data?.logs || []).map((l: any) => ({
             ...l,
             id: `remote-${gw.id}-${l.id || Math.random()}`,
