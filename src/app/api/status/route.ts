@@ -19,7 +19,7 @@ import { callGatewayRpc } from '@/lib/openclaw-gateway'
 async function getAllGatewaysSummary() {
   try {
     const db = getDatabase()
-    return db.prepare("SELECT host, port, token FROM gateways").all() as { host: string, port: number, token: string }[]
+    return db.prepare("SELECT id, host, port, token FROM gateways").all() as { id: number, host: string, port: number, token: string }[]
   } catch {
     return []
   }
@@ -348,15 +348,19 @@ async function getSystemStatus(workspaceId: number) {
     const localTotal = gatewaySessions.length
     const localActive = gatewaySessions.filter((s) => s.active).length
 
-    // Discover sessions from other gateways
+    // Discover sessions and status from other gateways
     const gateways = await getAllGatewaysSummary()
     let remoteTotal = 0
     let remoteActive = 0
+    const db = getDatabase()
+    const now = Math.floor(Date.now() / 1000)
+    const liveStatuses = getAgentLiveStatuses()
 
     await Promise.all(gateways.map(async (gw) => {
       // Skip local
       if (gw.host === '127.0.0.1' || gw.host === 'localhost' || gw.host === config.gatewayHost) return
 
+      const start = Date.now()
       try {
         let data: any
         try {
@@ -375,12 +379,53 @@ async function getSystemStatus(workspaceId: number) {
           )
         }
         
+        const latency = Date.now() - start
+        
         if (data?.sessions) {
           remoteTotal += data.sessions.length
-          remoteActive += data.sessions.filter((s: any) => s.active).length
+          const activeSessions = data.sessions.filter((s: any) => s.active)
+          remoteActive += activeSessions.length
+
+          // Update agent live statuses from remote sessions
+          for (const s of data.sessions) {
+            const agentName = s.agent
+            const updatedAt = s.updatedAt || 0
+            const existing = liveStatuses.get(agentName)
+            if (!existing || updatedAt > existing.lastActivity) {
+              const age = Date.now() - updatedAt
+              let status: 'active' | 'idle' | 'offline'
+              if (age < 5 * 60 * 1000) status = 'active'
+              else if (age < 60 * 60 * 1000) status = 'idle'
+              else status = 'offline'
+              
+              liveStatuses.set(agentName, {
+                status,
+                lastActivity: updatedAt,
+                channel: s.channel || s.deliveryContext?.channel || '',
+              })
+            }
+          }
+        }
+
+        // Update gateway status in DB
+        try {
+          db.prepare(`
+            UPDATE gateways SET 
+              status = 'online', 
+              last_seen = ?, 
+              latency = ?, 
+              sessions_count = ?, 
+              updated_at = ? 
+            WHERE id = ?
+          `).run(now, latency, data?.sessions?.length || 0, now, gw.id)
+        } catch (gwErr) {
+          logger.error({ err: gwErr, gw: gw.host }, 'Error updating gateway status')
         }
       } catch (err) {
-        // ignore
+        // Gateway unreachable
+        try {
+          db.prepare("UPDATE gateways SET status = 'offline', updated_at = ? WHERE id = ?").run(now, gw.id)
+        } catch { /* ignore */ }
       }
     }))
 
@@ -391,9 +436,6 @@ async function getSystemStatus(workspaceId: number) {
 
     // Sync agent statuses in DB from live session data
     try {
-      const db = getDatabase()
-      const liveStatuses = getAgentLiveStatuses()
-      const now = Math.floor(Date.now() / 1000)
       // Match by: exact name, lowercase, or normalized (spaces→hyphens)
       const updateStmt = db.prepare(
         `UPDATE agents SET status = ?, last_seen = ?, updated_at = ?
@@ -662,9 +704,15 @@ async function getCapabilities(request?: NextRequest) {
       "SELECT name FROM sqlite_master WHERE type='table' AND name='gateways'"
     ).get() as { name?: string } | undefined
     if (table?.name) {
-      const rows = db.prepare('SELECT host, port FROM gateways').all() as { host: string; port: number }[]
+      const rows = db.prepare('SELECT host, port, token FROM gateways').all() as { host: string; port: number; token: string }[]
       if (rows.length > 0) {
-        const probes = rows.map(r => isPortOpen(r.host, Number(r.port)))
+        const probes = rows.map(r => {
+          let url = r.host
+          if (!url.startsWith('http')) {
+            url = `http://${r.host}:${r.port}`
+          }
+          return isGatewayAlive(url, r.token)
+        })
         const results = await Promise.all(probes)
         gatewayReachable = results.some(Boolean)
       }
@@ -792,7 +840,7 @@ function isPortOpen(host: string, port: number): Promise<boolean> {
   })
 }
 
-async function isGatewayAlive(url: string): Promise<boolean> {
+async function isGatewayAlive(url: string, explicitToken?: string): Promise<boolean> {
   // If it's a local address and not a full URL (just host:port), use isPortOpen
   if (!url.startsWith('http')) {
     const [host, port] = url.split(':')
@@ -800,7 +848,7 @@ async function isGatewayAlive(url: string): Promise<boolean> {
   }
 
   try {
-    const token = getDetectedGatewayToken()
+    const token = explicitToken || getDetectedGatewayToken()
     const headers: Record<string, string> = {
       'ngrok-skip-browser-warning': 'true'
     }
