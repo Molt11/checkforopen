@@ -50,7 +50,8 @@
     "typescript": "^5.7.2",
     "ws": "^8.19.0",
     "zod": "^4.3.6",
-    "zustand": "^5.0.11"
+    "zustand": "^5.0.11",
+    "tslog": "^4.9.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.0",
@@ -89,6 +90,7 @@
     "overrides": {
       "opusscript": "0.0.8"
     },
+    "_overridesNotes": "Force opusscript to 0.0.8 to resolve peer dependency conflicts with discord.js/voice in build environments.",
     "onlyBuiltDependencies": [
       "better-sqlite3",
       "esbuild",
