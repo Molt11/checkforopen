@@ -77,6 +77,9 @@ services:
       - key: OPENCLAW_GATEWAY_TOKEN
         value: ${OPENCLAW_GATEWAY_TOKEN}
         type: SECRET
+      - key: NEXT_PUBLIC_GATEWAY_TOKEN
+        value: ${OPENCLAW_GATEWAY_TOKEN}
+        type: SECRET
     mounts:
       - name: mission-control-data
         mount_path: /app/data
