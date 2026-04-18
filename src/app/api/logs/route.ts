@@ -234,7 +234,7 @@ export async function GET(request: NextRequest) {
             { host: gw.host, port: gw.port, token: gw.token },
             'log.list',
             { limit: 200, source, level, session, search },
-            5000
+            20000
           )
           const remoteLogs = (data?.logs || []).map((l: any) => ({
             ...l,
@@ -283,7 +283,7 @@ export async function GET(request: NextRequest) {
             { host: gw.host, port: gw.port, token: gw.token },
             'log.sources',
             {},
-            3000
+            20000
           )
           if (data?.sources) {
             data.sources.forEach(s => allSources.add(`${gw.name}/${s}`))
@@ -314,7 +314,7 @@ export async function GET(request: NextRequest) {
             { host: gw.host, port: gw.port, token: gw.token },
             'log.tail',
             { since: sinceTimestamp, source, limit: 50 },
-            3000
+            20000
           )
           const remoteLogs = (data?.logs || []).map((l: any) => ({
             ...l,

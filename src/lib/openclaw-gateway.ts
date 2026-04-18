@@ -78,7 +78,7 @@ export async function callGatewayRpc<T = unknown>(
   gateway: GatewayConnection,
   method: string,
   params: unknown = {},
-  timeoutMs = 10000
+  timeoutMs = 30000
 ): Promise<T> {
   const { host, port, token } = gateway
   
@@ -106,7 +106,8 @@ export async function callGatewayRpc<T = unknown>(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'ngrok-skip-browser-warning': 'true'
         },
         body: JSON.stringify({
           method,

@@ -17,7 +17,10 @@ function gatewayUrl(path: string): string {
 
 function gatewayHeaders(): Record<string, string> {
   const token = getDetectedGatewayToken()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const headers: Record<string, string> = { 
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
+  }
   if (token) headers['Authorization'] = `Bearer ${token}`
   return headers
 }
@@ -70,7 +73,7 @@ export async function GET(request: NextRequest) {
 
 async function getSchema(): Promise<NextResponse> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5000)
+  const timeout = setTimeout(() => controller.abort(), 20000)
   try {
     const res = await fetch(gatewayUrl('/api/config/schema'), {
       signal: controller.signal,
@@ -195,7 +198,7 @@ export async function PUT(request: NextRequest) {
 
 async function applyConfig(request: NextRequest, auth: any): Promise<NextResponse> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 10000)
+  const timeout = setTimeout(() => controller.abort(), 20000)
   try {
     const res = await fetch(gatewayUrl('/api/config/apply'), {
       method: 'POST',
@@ -233,7 +236,7 @@ async function applyConfig(request: NextRequest, auth: any): Promise<NextRespons
 
 async function updateSystem(request: NextRequest, auth: any): Promise<NextResponse> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 15000)
+  const timeout = setTimeout(() => controller.abort(), 20000)
   try {
     const res = await fetch(gatewayUrl('/api/config/update'), {
       method: 'POST',

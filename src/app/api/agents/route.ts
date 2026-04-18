@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
           { host: gw.host, port: gw.port, token: gw.token },
           'agent.list',
           {},
-          5000
+          20000
         )
         const remoteAgents = (data?.agents || []).map(ra => ({
           id: `remote-${gw.id}-${ra.id}`,

@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger'
 import { getDatabase } from '@/lib/db'
 import { callGatewayRpc } from '@/lib/openclaw-gateway'
 
-const GATEWAY_TIMEOUT = 5000
+const GATEWAY_TIMEOUT = 20000
 
 interface GatewayEntry {
   id: number

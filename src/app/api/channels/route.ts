@@ -9,7 +9,10 @@ const gatewayInternalUrl = config.gatewayUrl
 
 function gatewayHeaders(): Record<string, string> {
   const token = getDetectedGatewayToken()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const headers: Record<string, string> = { 
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
+  }
   if (token) headers['Authorization'] = `Bearer ${token}`
   return headers
 }
@@ -185,7 +188,7 @@ async function loadChannelsViaCli(probe = false): Promise<ChannelsSnapshot> {
 async function isGatewayReachable(): Promise<boolean> {
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 2000)
+    const timeout = setTimeout(() => controller.abort(), 5000)
     const res = await fetch(`${gatewayInternalUrl}/api/health`, {
       headers: gatewayHeaders(),
       signal: controller.signal,
@@ -217,7 +220,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 5000)
+      const timeout = setTimeout(() => controller.abort(), 20000)
 
       const res = await fetch(`${gatewayInternalUrl}/api/channels/probe`, {
         method: 'POST',
@@ -252,7 +255,7 @@ export async function GET(request: NextRequest) {
   // Default: fetch all channel statuses
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 5000)
+    const timeout = setTimeout(() => controller.abort(), 20000)
 
     const res = await fetch(`${gatewayInternalUrl}/api/channels/status`, {
       headers: gatewayHeaders(),
@@ -360,7 +363,7 @@ export async function POST(request: NextRequest) {
       case 'whatsapp-logout': {
         try {
           const controller = new AbortController()
-          const timeout = setTimeout(() => controller.abort(), 10000)
+          const timeout = setTimeout(() => controller.abort(), 20000)
           const res = await fetch(`${gatewayInternalUrl}/api/channels/whatsapp/logout`, {
             method: 'POST',
             headers: gatewayHeaders(),

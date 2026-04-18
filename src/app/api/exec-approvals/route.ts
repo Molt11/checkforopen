@@ -3,10 +3,22 @@ import { createHash } from 'node:crypto'
 import { requireRole } from '@/lib/auth'
 import { config } from '@/lib/config'
 import { logger } from '@/lib/logger'
+import { getDetectedGatewayToken } from '@/lib/gateway-runtime'
 import path from 'node:path'
 
 function gatewayUrl(p: string): string {
   return `${config.gatewayUrl}${p}`
+}
+
+function gatewayHeaders(): Record<string, string> {
+  const token = getDetectedGatewayToken()
+  const headers: Record<string, string> = { 
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+    'Accept': 'application/json'
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  return headers
 }
 
 function execApprovalsPath(): string {
@@ -32,12 +44,12 @@ export async function GET(request: NextRequest) {
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5000)
+  const timeout = setTimeout(() => controller.abort(), 20000)
 
   try {
     const res = await fetch(gatewayUrl('/api/exec-approvals'), {
       signal: controller.signal,
-      headers: { 'Accept': 'application/json' },
+      headers: gatewayHeaders(),
     })
     clearTimeout(timeout)
 
@@ -181,13 +193,13 @@ export async function POST(request: NextRequest) {
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5000)
+  const timeout = setTimeout(() => controller.abort(), 20000)
 
   try {
     const res = await fetch(gatewayUrl('/api/exec-approvals/respond'), {
       method: 'POST',
       signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
+      headers: gatewayHeaders(),
       body: JSON.stringify({
         id: body.id,
         action: body.action,

@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
               { host: gw.host, port: gw.port, token: gw.token },
               'session.list',
               {},
-              5000
+              20000
             )
             sessions = data?.sessions || []
           } catch (err) {
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
               { host: gw.host, port: gw.port, token: gw.token },
               'session_list',
               {},
-              5000
+              20000
             )
             sessions = data?.sessions || []
           }
