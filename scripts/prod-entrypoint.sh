@@ -85,38 +85,32 @@ fi
 
 # Initialize config if it doesn't exist
 if [ ! -f "$OPENCLAW_CONFIG_PATH" ]; then
-    if [ -n "$OC_BIN" ]; then
-        echo "Initializing OpenClaw configuration using $OC_BIN..."
-        # Try various initialization commands used across different versions
-        if $OC_BIN config init --non-interactive 2>/dev/null; then
+    echo "Initializing OpenClaw configuration..."
+    if [ -n "$OPENCLAW_GATEWAY_URL" ] && [ "$OPENCLAW_GATEWAY_URL" != "http://127.0.0.1:18789" ]; then
+        echo '{"agents":{"list":[]},"gateway":{"mode":"remote","host":"'"$OPENCLAW_GATEWAY_URL"'"}}' > "$OPENCLAW_CONFIG_PATH"
+        echo "Created remote-mode skeleton configuration"
+    elif [ -n "$OC_BIN" ]; then
+        # Try a single fast initialization command first
+        if $OC_BIN config init --non-interactive --timeout 5000 2>/dev/null; then
             echo "Successfully initialized config via 'config init'"
-        elif $OC_BIN gateway init --non-interactive 2>/dev/null; then
-            echo "Successfully initialized config via 'gateway init'"
-        elif $OC_BIN configure --non-interactive 2>/dev/null || $OC_BIN configure --yes 2>/dev/null; then
-            echo "Successfully initialized config via 'configure'"
-        elif $OC_BIN setup --non-interactive 2>/dev/null; then
-            echo "Successfully initialized config via 'setup'"
-        elif $OC_BIN init --non-interactive 2>/dev/null; then
-            echo "Successfully initialized config via 'init'"
         else
-            echo "Warning: All initialization commands failed. Creating skeleton configuration..."
+            echo "Fast init failed. Creating skeleton configuration..."
             echo '{"agents":{"list":[]},"gateway":{"mode":"local"}}' > "$OPENCLAW_CONFIG_PATH"
         fi
     else
-        echo "Warning: openclaw binary not found. Creating skeleton configuration..."
         echo '{"agents":{"list":[]},"gateway":{"mode":"local"}}' > "$OPENCLAW_CONFIG_PATH"
     fi
 fi
 
-# Update config for Remote/Hybrid mode if URL is set
+# Update config for Remote/Hybrid mode if URL is set (Non-blocking)
 if [ -n "$OPENCLAW_GATEWAY_URL" ] && [ "$OPENCLAW_GATEWAY_URL" != "http://127.0.0.1:18789" ]; then
     echo "Hybrid Mode: Connecting to remote gateway at $OPENCLAW_GATEWAY_URL"
     if [ -n "$OC_BIN" ]; then
-        # Use CLI to set values if possible, otherwise we'd need jq
-        $OC_BIN config set gateway.mode remote 2>/dev/null || true
-        $OC_BIN config set gateway.host "$OPENCLAW_GATEWAY_URL" 2>/dev/null || true
+        # Run these in background or with very short timeouts to avoid blocking server start
+        $OC_BIN config set gateway.mode remote --timeout 2000 2>/dev/null || true
+        $OC_BIN config set gateway.host "$OPENCLAW_GATEWAY_URL" --timeout 2000 2>/dev/null || true
         if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
-            $OC_BIN config set gateway.auth.token "$OPENCLAW_GATEWAY_TOKEN" 2>/dev/null || true
+            $OC_BIN config set gateway.auth.token "$OPENCLAW_GATEWAY_TOKEN" --timeout 2000 2>/dev/null || true
         fi
     fi
 else
